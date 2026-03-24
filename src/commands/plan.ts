@@ -75,13 +75,12 @@ export async function planCommand(
 
   const userPrompt = `## Context\n- Tech stack: ${stack}\n\n## Requirements\n${requirements}\n\nGenerate the task file now.`;
 
-  const spinner = p.spinner();
-  spinner.start("Analyzing requirements with Claude Code...");
+  p.log.step("Starting Claude Code...");
 
   try {
     let output: string;
     if (usesAgent) {
-      output = await runClaudeAgent(userPrompt);
+      output = await runClaudeStream(userPrompt, { agent: "planner" });
     } else {
       const bundledPath = path.join(
         TEMPLATES_DIR,
@@ -92,25 +91,15 @@ export async function planCommand(
       );
       const bundledContent = fs.readFileSync(bundledPath, "utf-8");
       const body = bundledContent.replace(/^---[\s\S]*?---\n?/, "");
-      const tmpFile = path.join(os.tmpdir(), `ccl-plan-${Date.now()}.md`);
-      fs.writeFileSync(tmpFile, body, "utf-8");
-      try {
-        output = await runClaudeWithSystemPrompt(userPrompt, tmpFile);
-      } finally {
-        try {
-          fs.unlinkSync(tmpFile);
-        } catch {}
-      }
+      output = await runClaudeStream(userPrompt, { systemPrompt: body });
     }
-
-    spinner.stop("Task file generated");
 
     fs.writeFileSync(options.output, output.trim() + "\n", "utf-8");
     p.log.success(`Written to ${pc.cyan(options.output)}`);
 
+    const taskCount = (output.match(/- \[ \]/g) || []).length;
     const lines = output.trim().split("\n");
     const preview = lines.slice(0, 15).join("\n");
-    const taskCount = (output.match(/- \[ \]/g) || []).length;
 
     p.note(
       preview +
@@ -122,21 +111,34 @@ export async function planCommand(
       `Next: ${pc.cyan(`claude-code-loops run ${options.output} --iterations 5`)}`,
     );
   } catch (err) {
-    spinner.stop("Failed");
     p.log.error("Claude Code CLI failed. Is it installed and authenticated?");
     if (err instanceof Error) p.log.message(pc.dim(err.message));
     process.exit(1);
   }
 }
 
-function runClaudeWithSystemPrompt(
+interface StreamOptions {
+  agent?: string;
+  systemPrompt?: string;
+}
+
+function runClaudeStream(
   userPrompt: string,
-  systemPromptFile: string,
+  options: StreamOptions,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     // Write prompt to temp file to avoid shell escaping issues on Windows
     const promptFile = path.join(os.tmpdir(), `ccl-prompt-${Date.now()}.txt`);
-    fs.writeFileSync(promptFile, userPrompt, "utf-8");
+
+    if (options.systemPrompt) {
+      fs.writeFileSync(
+        promptFile,
+        options.systemPrompt + "\n\n" + userPrompt,
+        "utf-8",
+      );
+    } else {
+      fs.writeFileSync(promptFile, userPrompt, "utf-8");
+    }
 
     const cleanup = () => {
       try {
@@ -144,38 +146,82 @@ function runClaudeWithSystemPrompt(
       } catch {}
     };
 
-    // Use cat to pipe the file content to claude -p
-    // This avoids passing multi-line strings as shell arguments
-    const cmd =
-      process.platform === "win32"
-        ? `type "${promptFile}" | claude -p --append-system-prompt-file "${systemPromptFile}" --output-format text --max-turns 3`
-        : `cat "${promptFile}" | claude -p --append-system-prompt-file "${systemPromptFile}" --output-format text --max-turns 3`;
+    const args = [
+      ...(options.agent ? ["--agent", options.agent] : []),
+      "-p",
+      "Execute the plan request in the attached file.",
+      "--append-system-prompt-file",
+      promptFile,
+      "--output-format",
+      "stream-json",
+      ...(options.agent ? [] : ["--max-turns", "3"]),
+    ];
 
-    const child = spawn(cmd, [], {
+    const child = spawn("claude", args, {
       stdio: ["ignore", "pipe", "pipe"],
       shell: true,
     });
 
-    let stdout = "";
-    let stderr = "";
+    let resultText = "";
+    let buffer = "";
 
     child.stdout.on("data", (chunk: Buffer) => {
-      stdout += chunk.toString();
+      buffer += chunk.toString();
+
+      // Process complete JSON lines
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+
+        try {
+          const event = JSON.parse(trimmed) as Record<string, unknown>;
+          processStreamEvent(event);
+
+          // Collect assistant text for the final output
+          if (event.type === "assistant" && event.message) {
+            const msg = event.message as Record<string, unknown>;
+            if (msg.content && Array.isArray(msg.content)) {
+              for (const block of msg.content) {
+                const b = block as Record<string, unknown>;
+                if (b.type === "text" && typeof b.text === "string") {
+                  resultText = b.text;
+                }
+              }
+            }
+          }
+
+          // Also check for result type
+          if (event.type === "result" && event.result) {
+            const result = event.result as string;
+            if (result) resultText = result;
+          }
+        } catch {
+          // Not valid JSON, skip
+        }
+      }
     });
+
+    let stderr = "";
     child.stderr.on("data", (chunk: Buffer) => {
       stderr += chunk.toString();
     });
 
     const timer = setTimeout(() => {
       child.kill();
-      reject(new Error("Claude Code CLI timed out after 3 minutes"));
-    }, 180_000);
+      cleanup();
+      reject(new Error("Claude Code CLI timed out after 10 minutes"));
+    }, 600_000);
 
     child.on("close", (code) => {
       clearTimeout(timer);
       cleanup();
-      if (code === 0) {
-        resolve(stdout);
+      if (code === 0 && resultText) {
+        resolve(resultText);
+      } else if (code === 0) {
+        reject(new Error("Claude returned no output"));
       } else {
         reject(new Error(stderr || `claude exited with code ${code}`));
       }
@@ -189,54 +235,46 @@ function runClaudeWithSystemPrompt(
   });
 }
 
-function runClaudeAgent(userPrompt: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    // Write prompt to temp file to avoid shell escaping issues on Windows
-    const promptFile = path.join(os.tmpdir(), `ccl-prompt-${Date.now()}.txt`);
-    fs.writeFileSync(promptFile, userPrompt, "utf-8");
+function processStreamEvent(event: Record<string, unknown>): void {
+  if (event.type === "assistant" && event.message) {
+    const msg = event.message as Record<string, unknown>;
+    if (msg.content && Array.isArray(msg.content)) {
+      for (const block of msg.content) {
+        const b = block as Record<string, unknown>;
+        if (b.type === "tool_use" && typeof b.name === "string") {
+          const input = b.input as Record<string, unknown> | undefined;
+          const detail = getToolDetail(b.name, input);
+          p.log.step(pc.dim(`${b.name}${detail ? `: ${detail}` : ""}`));
+        }
+      }
+    }
+  }
+}
 
-    const cleanup = () => {
-      try {
-        fs.unlinkSync(promptFile);
-      } catch {}
-    };
+function getToolDetail(
+  toolName: string,
+  input: Record<string, unknown> | undefined,
+): string {
+  if (!input) return "";
 
-    const cmd =
-      process.platform === "win32"
-        ? `type "${promptFile}" | claude --agent planner -p --output-format text`
-        : `cat "${promptFile}" | claude --agent planner -p --output-format text`;
-
-    const child = spawn(cmd, [], {
-      stdio: ["ignore", "pipe", "pipe"],
-      shell: true,
-    });
-
-    let stdout = "";
-    let stderr = "";
-
-    child.stdout.on("data", (chunk: Buffer) => {
-      stdout += chunk.toString();
-    });
-    child.stderr.on("data", (chunk: Buffer) => {
-      stderr += chunk.toString();
-    });
-
-    const timer = setTimeout(() => {
-      child.kill();
-      reject(new Error("Claude Code CLI timed out after 5 minutes"));
-    }, 300_000);
-
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      cleanup();
-      if (code === 0) resolve(stdout);
-      else reject(new Error(stderr || `claude exited with code ${code}`));
-    });
-
-    child.on("error", (err) => {
-      clearTimeout(timer);
-      cleanup();
-      reject(err);
-    });
-  });
+  switch (toolName) {
+    case "Read":
+      return typeof input.file_path === "string"
+        ? path.basename(input.file_path)
+        : "";
+    case "Glob":
+      return typeof input.pattern === "string" ? input.pattern : "";
+    case "Grep":
+      return typeof input.pattern === "string" ? `"${input.pattern}"` : "";
+    case "Bash":
+      return typeof input.command === "string"
+        ? input.command.slice(0, 60)
+        : "";
+    case "Write":
+      return typeof input.file_path === "string"
+        ? path.basename(input.file_path)
+        : "";
+    default:
+      return "";
+  }
 }
