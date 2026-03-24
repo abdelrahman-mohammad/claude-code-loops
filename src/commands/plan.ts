@@ -39,7 +39,7 @@ export async function planCommand(
           "--jq",
           '"# " + .title + "\\n\\n" + .body + "\\n\\nLabels: " + ([.labels[].name] | join(", "))',
         ],
-        { encoding: "utf-8", timeout: 30_000 },
+        { encoding: "utf-8", timeout: 30_000, shell: true },
       );
     } catch {
       p.log.error(
@@ -96,6 +96,7 @@ Generate the task file now.`;
         encoding: "utf-8",
         maxBuffer: 1024 * 1024 * 10,
         timeout: 180_000,
+        shell: true,
       },
     );
 
