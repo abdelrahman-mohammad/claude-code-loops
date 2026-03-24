@@ -4,6 +4,8 @@ import path from "node:path";
 import * as p from "@clack/prompts";
 import pc from "picocolors";
 import { TEMPLATES_DIR } from "../utils/copy.js";
+import { readCclConfig } from "../utils/ccl-config.js";
+import { syncAgentFrontmatter } from "../utils/sync-agent-frontmatter.js";
 
 export interface RunOptions {
   iterations?: number;
@@ -52,23 +54,50 @@ export async function runCommand(
     process.exit(1);
   }
 
-  // Build loop.sh args
+  // Read config and sync agent frontmatter
+  const cclConfig = readCclConfig(process.cwd());
+  syncAgentFrontmatter(process.cwd());
+
+  // Build loop.sh args — CLI flags take priority over ccl.json defaults
   const args: string[] = [loopScript, resolvedTaskFile];
 
-  if (options.iterations) args.push("--iterations", String(options.iterations));
+  const iterations = options.iterations ?? cclConfig?.loop.iterations;
+  if (iterations) args.push("--iterations", String(iterations));
+
   if (options.coderAgent) args.push("--coder-agent", options.coderAgent);
   if (options.reviewerAgent)
     args.push("--reviewer-agent", options.reviewerAgent);
-  if (options.stopOnPass === false) args.push("--no-stop-on-pass");
-  if (options.circuitBreaker)
-    args.push("--no-progress-threshold", String(options.circuitBreaker));
-  if (options.timeLimit) args.push("--time-limit", options.timeLimit);
-  if (options.tokenBudget)
-    args.push("--token-budget", String(options.tokenBudget));
-  if (options.coverageThreshold)
-    args.push("--coverage-threshold", String(options.coverageThreshold));
-  if (options.monitor) args.push("--monitor");
-  if (options.noCommit) args.push("--no-commit");
+
+  const stopOnPass = options.stopOnPass ?? cclConfig?.loop.stopOnPass;
+  if (stopOnPass === false) args.push("--no-stop-on-pass");
+
+  const circuitBreaker =
+    options.circuitBreaker ?? cclConfig?.loop.circuitBreaker;
+  if (circuitBreaker)
+    args.push("--no-progress-threshold", String(circuitBreaker));
+
+  const timeLimit = options.timeLimit ?? cclConfig?.loop.timeLimit;
+  if (timeLimit) args.push("--time-limit", timeLimit);
+
+  const tokenBudget = options.tokenBudget ?? cclConfig?.loop.tokenBudget;
+  if (tokenBudget) args.push("--token-budget", String(tokenBudget));
+
+  const coverageThreshold =
+    options.coverageThreshold ?? cclConfig?.loop.coverageThreshold;
+  if (coverageThreshold)
+    args.push("--coverage-threshold", String(coverageThreshold));
+
+  const monitor = options.monitor ?? cclConfig?.loop.monitor;
+  if (monitor) args.push("--monitor");
+
+  const noCommit = options.noCommit ?? cclConfig?.loop.noCommit ?? false;
+  if (noCommit) args.push("--no-commit");
+
+  const buildGate = cclConfig?.loop.buildGate;
+  if (buildGate) args.push("--build-gate");
+
+  const zeroDiffHalt = cclConfig?.loop.zeroDiffHalt;
+  if (zeroDiffHalt) args.push("--zero-diff-halt");
 
   p.log.info(`Running loop on ${pc.cyan(path.basename(resolvedTaskFile))}...`);
 
