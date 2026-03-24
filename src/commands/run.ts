@@ -18,7 +18,7 @@ export interface RunOptions {
   coverageThreshold?: number;
   monitor?: boolean;
   prompt?: string;
-  noCommit?: boolean;
+  commit?: boolean;
 }
 
 export async function runCommand(
@@ -90,7 +90,9 @@ export async function runCommand(
   const monitor = options.monitor ?? cclConfig?.loop.monitor;
   if (monitor) args.push("--monitor");
 
-  const noCommit = options.noCommit ?? cclConfig?.loop.noCommit ?? false;
+  // Commander's --no-commit sets options.commit = false
+  const noCommit =
+    options.commit === false ? true : (cclConfig?.loop.noCommit ?? false);
   if (noCommit) args.push("--no-commit");
 
   const buildGate = cclConfig?.loop.buildGate;

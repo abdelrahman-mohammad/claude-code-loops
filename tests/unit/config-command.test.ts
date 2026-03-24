@@ -24,7 +24,11 @@ describe("config command", () => {
   describe("applyConfigFlags", () => {
     it("sets model in defaults", () => {
       const config = structuredClone(DEFAULT_CONFIG);
-      const { config: updated } = applyConfigFlags(config, { model: "opus" });
+      const { config: updated } = applyConfigFlags(
+        config,
+        { model: "opus" },
+        tmpDir,
+      );
       expect(updated.agents.defaults.model).toBe("opus");
     });
 
@@ -34,41 +38,57 @@ describe("config command", () => {
         "---\nname: coder\nmodel: sonnet\n---\nBody.",
       );
       const config = structuredClone(DEFAULT_CONFIG);
-      const { config: updated } = applyConfigFlags(config, {
-        model: "opus",
-        agent: "coder",
-      });
+      const { config: updated } = applyConfigFlags(
+        config,
+        {
+          model: "opus",
+          agent: "coder",
+        },
+        tmpDir,
+      );
       expect(updated.agents.defaults.model).toBe("sonnet");
       expect(updated.agents.overrides.coder?.model).toBe("opus");
     });
 
     it("sets loop iterations", () => {
       const config = structuredClone(DEFAULT_CONFIG);
-      const { config: updated } = applyConfigFlags(config, {
-        iterations: "5",
-      });
+      const { config: updated } = applyConfigFlags(
+        config,
+        {
+          iterations: "5",
+        },
+        tmpDir,
+      );
       expect(updated.loop.iterations).toBe(5);
     });
 
     it("sets boolean loop fields via string true/false", () => {
       const config = structuredClone(DEFAULT_CONFIG);
-      const { config: updated } = applyConfigFlags(config, { commit: "false" });
+      const { config: updated } = applyConfigFlags(
+        config,
+        { commit: "false" },
+        tmpDir,
+      );
       expect(updated.loop.noCommit).toBe(true);
     });
 
     it("throws on invalid model", () => {
       const config = structuredClone(DEFAULT_CONFIG);
-      expect(() => applyConfigFlags(config, { model: "gpt-4" })).toThrow(
-        "Invalid model",
-      );
+      expect(() =>
+        applyConfigFlags(config, { model: "gpt-4" }, tmpDir),
+      ).toThrow("Invalid model");
     });
 
     it("warns on unknown agent", () => {
       const config = structuredClone(DEFAULT_CONFIG);
-      const { warnings } = applyConfigFlags(config, {
-        model: "opus",
-        agent: "nonexistent",
-      });
+      const { warnings } = applyConfigFlags(
+        config,
+        {
+          model: "opus",
+          agent: "nonexistent",
+        },
+        tmpDir,
+      );
       expect(warnings.length).toBe(1);
       expect(warnings[0]).toContain("nonexistent");
     });

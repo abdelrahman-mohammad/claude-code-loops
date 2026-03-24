@@ -417,7 +417,11 @@ describe("config command integration", () => {
     writeCclConfig(tmpDir, DEFAULT_CONFIG);
 
     const config = readCclConfig(tmpDir)!;
-    const { config: updated } = applyConfigFlags(config, { model: "opus" });
+    const { config: updated } = applyConfigFlags(
+      config,
+      { model: "opus" },
+      tmpDir,
+    );
     writeCclConfig(tmpDir, updated);
     syncAgentFrontmatter(tmpDir);
 
@@ -440,10 +444,14 @@ describe("config command integration", () => {
     writeCclConfig(tmpDir, DEFAULT_CONFIG);
 
     const config = readCclConfig(tmpDir)!;
-    const { config: updated } = applyConfigFlags(config, {
-      model: "haiku",
-      agent: "reviewer",
-    });
+    const { config: updated } = applyConfigFlags(
+      config,
+      {
+        model: "haiku",
+        agent: "reviewer",
+      },
+      tmpDir,
+    );
     writeCclConfig(tmpDir, updated);
     syncAgentFrontmatter(tmpDir);
 

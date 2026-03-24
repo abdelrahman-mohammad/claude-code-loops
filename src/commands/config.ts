@@ -38,6 +38,7 @@ export interface ConfigOptions {
 export function applyConfigFlags(
   config: CclConfig,
   options: ConfigOptions,
+  destDir: string,
 ): { config: CclConfig; warnings: string[] } {
   const warnings: string[] = [];
   const updated = structuredClone(config);
@@ -53,7 +54,7 @@ export function applyConfigFlags(
     // Warn if --agent targets non-existent agent file
     if (options.agent) {
       const agentPath = path.join(
-        process.cwd(),
+        destDir,
         ".claude",
         "agents",
         `${options.agent}.md`,
@@ -146,7 +147,11 @@ export async function configCommand(options: ConfigOptions): Promise<void> {
   if (hasFlags) {
     // Non-interactive: apply flags
     const config = readCclConfig(destDir) ?? bootstrapConfigFromAgents(destDir);
-    const { config: updated, warnings } = applyConfigFlags(config, options);
+    const { config: updated, warnings } = applyConfigFlags(
+      config,
+      options,
+      destDir,
+    );
     writeCclConfig(destDir, updated);
     syncAgentFrontmatter(destDir);
     for (const w of warnings) p.log.warn(w);

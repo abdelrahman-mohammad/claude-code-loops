@@ -17,7 +17,8 @@ import {
 } from "../utils/ccl-config.js";
 import { syncAgentFrontmatter } from "../utils/sync-agent-frontmatter.js";
 
-// Stack-specific agent overrides (per template defaults)
+// Stack-specific agent overrides (per template defaults).
+// Only applied when the user hasn't explicitly chosen a model.
 const STACK_AGENT_OVERRIDES: Record<string, Record<string, AgentSettings>> = {
   "spring-boot": { coder: { model: "opus" } },
 };
@@ -80,11 +81,13 @@ export async function initCommand(options: InitOptions): Promise<void> {
     const allFiles = [...new Set([...baseFiles, ...stackFiles])];
 
     // Generate ccl.json and sync agent frontmatter
+    // Only apply stack-specific overrides if user didn't explicitly choose a model
+    const userChoseModel = options.model !== undefined;
     const cclConfig: CclConfig = {
       ...DEFAULT_CONFIG,
       agents: {
         defaults: { ...DEFAULT_CONFIG.agents.defaults, model },
-        overrides: STACK_AGENT_OVERRIDES[stack] ?? {},
+        overrides: userChoseModel ? {} : (STACK_AGENT_OVERRIDES[stack] ?? {}),
       },
     };
 
