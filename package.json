@@ -4,7 +4,8 @@
   "description": "Autonomous code-review-fix loops for Claude Code",
   "type": "module",
   "bin": {
-    "claude-code-loops": "./dist/index.js"
+    "claude-code-loops": "./dist/index.js",
+    "ccl": "./dist/index.js"
   },
   "main": "./dist/index.js",
   "files": [

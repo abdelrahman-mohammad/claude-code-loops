@@ -13,7 +13,7 @@ Scaffolds Claude Code configurations (agents, hooks, rules, CLAUDE.md, orchestra
 ```bash
 # 1. Scaffold into your project
 cd your-project
-npx claude-code-loops init
+npx ccl init          # or: npx claude-code-loops init
 
 # 2. Write a task
 echo "Add input validation to all API endpoints" > task.md
@@ -27,15 +27,15 @@ That's it. The loop runs up to 10 iterations with smart stopping -- it exits ear
 ### Pick a stack
 
 ```bash
-npx claude-code-loops init --stack node         # Node.js / TypeScript
-npx claude-code-loops init --stack spring-boot   # Java / Spring Boot
-npx claude-code-loops init --stack fastapi       # Python / FastAPI
-npx claude-code-loops init --stack django        # Python / Django
-npx claude-code-loops init --stack nextjs        # Next.js
-npx claude-code-loops init --stack generic       # Any project
+npx ccl init --stack node         # Node.js / TypeScript
+npx ccl init --stack spring-boot  # Java / Spring Boot
+npx ccl init --stack fastapi      # Python / FastAPI
+npx ccl init --stack django       # Python / Django
+npx ccl init --stack nextjs       # Next.js
+npx ccl init --stack generic      # Any project
 ```
 
-Or just run `npx claude-code-loops init` -- it auto-detects your stack.
+Or just run `npx ccl init` -- it auto-detects your stack.
 
 ## What Gets Created
 
@@ -79,7 +79,7 @@ All agents run on Sonnet by default. The coder and reviewer run in **separate co
 ### `init` -- Scaffold Configuration
 
 ```bash
-claude-code-loops init [options]
+ccl init [options]
 
 Options:
   -s, --stack <stack>    Stack: node, spring-boot, fastapi, django, nextjs, generic
@@ -91,9 +91,9 @@ Options:
 Convert requirements into structured task files for the loop:
 
 ```bash
-claude-code-loops plan requirements.md                                    # From a file
-claude-code-loops plan --input https://github.com/org/repo/issues/42     # From a GitHub issue
-claude-code-loops plan --prompt "Add JWT authentication to the API"       # From inline text
+ccl plan requirements.md                                    # From a file
+ccl plan --input https://github.com/org/repo/issues/42     # From a GitHub issue
+ccl plan --prompt "Add JWT authentication to the API"       # From inline text
 ```
 
 ### `run` -- Execute the Loop
@@ -101,8 +101,8 @@ claude-code-loops plan --prompt "Add JWT authentication to the API"       # From
 First-class CLI wrapper around `loop.sh` with signal forwarding:
 
 ```bash
-claude-code-loops run task.md                              # Defaults: 10 iterations, smart stopping
-claude-code-loops run task.md --iterations 5 --coder-turns 30   # Customize
+ccl run task.md                              # Defaults: 10 iterations, smart stopping
+ccl run task.md --iterations 5 --coder-turns 30   # Customize
 ```
 
 ### Running the Loop Directly
