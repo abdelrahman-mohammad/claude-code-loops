@@ -1,6 +1,6 @@
 {
   "name": "claude-code-loops",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Autonomous code-review-fix loops for Claude Code",
   "type": "module",
   "bin": {
@@ -45,8 +45,10 @@
     "fs-extra": "^11.3.0",
     "picocolors": "^1.1.1"
   },
+  "optionalDependencies": {
+    "@rollup/rollup-win32-x64-msvc": "^4.60.0"
+  },
   "devDependencies": {
-    "@rollup/rollup-win32-x64-msvc": "^4.60.0",
     "@types/fs-extra": "^11.0.4",
     "@types/node": "^22.13.0",
     "tsup": "^8.4.0",
