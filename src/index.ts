@@ -21,6 +21,7 @@ program
     "-s, --stack <stack>",
     "Stack to use (node, spring-boot, fastapi, django, nextjs, generic)",
   )
+  .option("-m, --model <model>", "Model for agents (sonnet, opus, haiku)")
   .option("--no-interactive", "Skip interactive prompts, use defaults")
   .action(async (options) => {
     await initCommand(options);
