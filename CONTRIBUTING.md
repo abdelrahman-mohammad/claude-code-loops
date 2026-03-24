@@ -33,6 +33,7 @@ TMPDIR=$(mktemp -d) && cd "$TMPDIR" && node "$(dirs +0)/dist/index.js" init --st
 The project uses a **base + overlay** pattern. `templates/base/` is always copied first, then the selected stack overlay (`templates/node/`, `templates/fastapi/`, etc.) is layered on top.
 
 Three files get special merge treatment instead of simple copy:
+
 - `settings.json` -- deep-merged (hook arrays concatenated, permissions deduplicated)
 - `CLAUDE.md` -- appended with idempotency markers
 - `.claudeignore` -- lines appended with deduplication
@@ -48,11 +49,19 @@ See `.claude/CLAUDE.md` for full architecture details.
    - `CLAUDE.md` (stack-specific project conventions)
 
 2. **Create the installer** at `src/installers/<stack-name>.ts`:
+
    ```typescript
    import path from "node:path";
-   import { copyTemplateDir, TEMPLATES_DIR, type CopyOptions } from "../utils/copy.js";
+   import {
+     copyTemplateDir,
+     TEMPLATES_DIR,
+     type CopyOptions,
+   } from "../utils/copy.js";
 
-   export async function installMyStack(destDir: string, options: CopyOptions): Promise<string[]> {
+   export async function installMyStack(
+     destDir: string,
+     options: CopyOptions,
+   ): Promise<string[]> {
      const srcDir = path.join(TEMPLATES_DIR, "my-stack");
      return copyTemplateDir(srcDir, destDir, options);
    }

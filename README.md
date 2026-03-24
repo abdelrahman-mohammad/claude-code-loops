@@ -63,14 +63,14 @@ your-project/
 
 ## Stacks
 
-| Stack | Coder Agent | Reviewer Agent | Auto-format | Extras |
-|-------|-------------|----------------|-------------|--------|
-| **Node.js/TypeScript** | Senior TS engineer | Principal engineer reviewer | Prettier | TypeScript strict rules |
-| **Java/Spring Boot** | Spring Boot engineer | Spring reviewer | google-java-format | Spring DI rules, compile-check Stop hook |
-| **Python/FastAPI** | Async Python engineer | FastAPI reviewer | ruff format + check | Pydantic v2 rules, async correctness |
-| **Python/Django** | Django engineer | Django reviewer | ruff + djlint | ORM patterns, N+1 detection |
-| **Next.js** | Full-stack Next.js engineer | Next.js reviewer | Prettier + ESLint | App Router rules, Server/Client boundaries |
-| **Generic** | -- | General code reviewer | -- | Minimal setup for any project |
+| Stack                  | Coder Agent                 | Reviewer Agent              | Auto-format         | Extras                                     |
+| ---------------------- | --------------------------- | --------------------------- | ------------------- | ------------------------------------------ |
+| **Node.js/TypeScript** | Senior TS engineer          | Principal engineer reviewer | Prettier            | TypeScript strict rules                    |
+| **Java/Spring Boot**   | Spring Boot engineer        | Spring reviewer             | google-java-format  | Spring DI rules, compile-check Stop hook   |
+| **Python/FastAPI**     | Async Python engineer       | FastAPI reviewer            | ruff format + check | Pydantic v2 rules, async correctness       |
+| **Python/Django**      | Django engineer             | Django reviewer             | ruff + djlint       | ORM patterns, N+1 detection                |
+| **Next.js**            | Full-stack Next.js engineer | Next.js reviewer            | Prettier + ESLint   | App Router rules, Server/Client boundaries |
+| **Generic**            | --                          | General code reviewer       | --                  | Minimal setup for any project              |
 
 All agents run on Sonnet by default. The coder and reviewer run in **separate context windows** -- the reviewer cannot see the coder's reasoning, providing genuine independent review.
 
