@@ -147,7 +147,6 @@ function runClaudeWithSystemPrompt(
 
     const child = spawn("claude", args, {
       stdio: ["ignore", "pipe", "pipe"],
-      shell: true,
     });
 
     let stdout = "";
@@ -194,7 +193,6 @@ function runClaudeAgent(userPrompt: string): Promise<string> {
 
     const child = spawn("claude", args, {
       stdio: ["ignore", "pipe", "pipe"],
-      shell: true,
     });
 
     let stdout = "";
