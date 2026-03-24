@@ -136,22 +136,26 @@ Monitoring:
 ## How It Works
 
 ```
-┌─────────┐     ┌───────────┐     ┌────────────┐     ┌──────────┐
-│  Task /  │────>│   Coder   │────>│ Auto-commit│────>│  Build   │
-│ Findings │     │   Agent   │     │            │     │   Gate   │
-└─────────┘     └───────────┘     └────────────┘     └────┬─────┘
-     ^                                                     │
-     │                                              Pass? ─┤── No: back to Coder
-     │                                                     │
-     │                                                    Yes
-     │                                                     │
-     │           ┌───────────┐     ┌────────────┐          v
-     └───────────│ Stop      │<────│  Reviewer  │<─────────┘
-      (if FAIL)  │ Conditions│     │   Agent    │
+                       ┌──────────────────────────────────────────────┐
+                       ▼                                              │
+┌──────────┐     ┌───────────┐     ┌───────────┐     ┌──────────┐     │
+│  Task /  │────>│   Coder   │────>│   Auto    │────>│  Build   │     │
+│ Findings │     │   Agent   │     │  commit   │     │   Gate   │     │
+└──────────┘     └───────────┘     └───────────┘     └────┬─────┘     │
+     ▲                                                    │           │
+     │                                             Pass? ─┼─ No ──────┘
+     │                                                    │
+     │                                                   Yes
+     │                                                    │
+     │           ┌───────────┐     ┌────────────┐         ▼
+     └───FAIL────│   Stop    │<────│  Reviewer  │<────────┘
+                 │ Conditions│     │   Agent    │
                  └─────┬─────┘     └────────────┘
                        │
-                 Met? ─┤── Yes: exit with report
-                       │── No: next iteration
+                      Met?
+                       │
+                       ├─ Yes: exit with report
+                       └─ No: next iteration
 ```
 
 1. **Coder agent** reads the task (or review findings) and implements/fixes code
