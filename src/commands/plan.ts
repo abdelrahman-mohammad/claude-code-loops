@@ -134,19 +134,26 @@ function runClaudeWithSystemPrompt(
   systemPromptFile: string,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
-    const args = [
-      "-p",
-      userPrompt,
-      "--append-system-prompt-file",
-      systemPromptFile,
-      "--output-format",
-      "text",
-      "--max-turns",
-      "3",
-    ];
+    // Write prompt to temp file to avoid shell escaping issues on Windows
+    const promptFile = path.join(os.tmpdir(), `ccl-prompt-${Date.now()}.txt`);
+    fs.writeFileSync(promptFile, userPrompt, "utf-8");
 
-    const child = spawn("claude", args, {
+    const cleanup = () => {
+      try {
+        fs.unlinkSync(promptFile);
+      } catch {}
+    };
+
+    // Use cat to pipe the file content to claude -p
+    // This avoids passing multi-line strings as shell arguments
+    const cmd =
+      process.platform === "win32"
+        ? `type "${promptFile}" | claude -p --append-system-prompt-file "${systemPromptFile}" --output-format text --max-turns 3`
+        : `cat "${promptFile}" | claude -p --append-system-prompt-file "${systemPromptFile}" --output-format text --max-turns 3`;
+
+    const child = spawn(cmd, [], {
       stdio: ["ignore", "pipe", "pipe"],
+      shell: true,
     });
 
     let stdout = "";
@@ -166,6 +173,7 @@ function runClaudeWithSystemPrompt(
 
     child.on("close", (code) => {
       clearTimeout(timer);
+      cleanup();
       if (code === 0) {
         resolve(stdout);
       } else {
@@ -175,6 +183,7 @@ function runClaudeWithSystemPrompt(
 
     child.on("error", (err) => {
       clearTimeout(timer);
+      cleanup();
       reject(err);
     });
   });
@@ -182,17 +191,24 @@ function runClaudeWithSystemPrompt(
 
 function runClaudeAgent(userPrompt: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    const args = [
-      "--agent",
-      "planner",
-      "-p",
-      userPrompt,
-      "--output-format",
-      "text",
-    ];
+    // Write prompt to temp file to avoid shell escaping issues on Windows
+    const promptFile = path.join(os.tmpdir(), `ccl-prompt-${Date.now()}.txt`);
+    fs.writeFileSync(promptFile, userPrompt, "utf-8");
 
-    const child = spawn("claude", args, {
+    const cleanup = () => {
+      try {
+        fs.unlinkSync(promptFile);
+      } catch {}
+    };
+
+    const cmd =
+      process.platform === "win32"
+        ? `type "${promptFile}" | claude --agent planner -p --output-format text`
+        : `cat "${promptFile}" | claude --agent planner -p --output-format text`;
+
+    const child = spawn(cmd, [], {
       stdio: ["ignore", "pipe", "pipe"],
+      shell: true,
     });
 
     let stdout = "";
@@ -212,12 +228,14 @@ function runClaudeAgent(userPrompt: string): Promise<string> {
 
     child.on("close", (code) => {
       clearTimeout(timer);
+      cleanup();
       if (code === 0) resolve(stdout);
       else reject(new Error(stderr || `claude exited with code ${code}`));
     });
 
     child.on("error", (err) => {
       clearTimeout(timer);
+      cleanup();
       reject(err);
     });
   });
