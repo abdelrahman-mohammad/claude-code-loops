@@ -64,30 +64,44 @@ export async function planCommand(
   }
 
   const stack = options.stack || detectStack(process.cwd());
-  const systemPromptPath = path.join(
-    TEMPLATES_DIR,
-    "base",
-    "prompts",
-    "plan-system-prompt.md",
+
+  const plannerAgentPath = path.join(
+    process.cwd(),
+    ".claude",
+    "agents",
+    "planner.md",
   );
+  const usesAgent = fs.existsSync(plannerAgentPath);
 
-  let systemPrompt = "";
-  if (fs.existsSync(systemPromptPath)) {
-    systemPrompt = fs.readFileSync(systemPromptPath, "utf-8");
-  }
-
-  // Write system prompt + context to a temp file so it never touches shell escaping.
-  const systemPromptWithContext = `${systemPrompt}\n\n## Context\n- Tech stack: ${stack}`;
-  const tmpFile = path.join(os.tmpdir(), `ccl-plan-${Date.now()}.md`);
-  fs.writeFileSync(tmpFile, systemPromptWithContext, "utf-8");
-
-  const userPrompt = `## Requirements\n${requirements}\n\nGenerate the task file now.`;
+  const userPrompt = `## Context\n- Tech stack: ${stack}\n\n## Requirements\n${requirements}\n\nGenerate the task file now.`;
 
   const spinner = p.spinner();
   spinner.start("Analyzing requirements with Claude Code...");
 
   try {
-    const output = await runClaude(userPrompt, tmpFile);
+    let output: string;
+    if (usesAgent) {
+      output = await runClaudeAgent(userPrompt);
+    } else {
+      const bundledPath = path.join(
+        TEMPLATES_DIR,
+        "base",
+        ".claude",
+        "agents",
+        "planner.md",
+      );
+      const bundledContent = fs.readFileSync(bundledPath, "utf-8");
+      const body = bundledContent.replace(/^---[\s\S]*?---\n?/, "");
+      const tmpFile = path.join(os.tmpdir(), `ccl-plan-${Date.now()}.md`);
+      fs.writeFileSync(tmpFile, body, "utf-8");
+      try {
+        output = await runClaudeWithSystemPrompt(userPrompt, tmpFile);
+      } finally {
+        try {
+          fs.unlinkSync(tmpFile);
+        } catch {}
+      }
+    }
 
     spinner.stop("Task file generated");
 
@@ -112,16 +126,10 @@ export async function planCommand(
     p.log.error("Claude Code CLI failed. Is it installed and authenticated?");
     if (err instanceof Error) p.log.message(pc.dim(err.message));
     process.exit(1);
-  } finally {
-    try {
-      fs.unlinkSync(tmpFile);
-    } catch {
-      // ignore cleanup errors
-    }
   }
 }
 
-function runClaude(
+function runClaudeWithSystemPrompt(
   userPrompt: string,
   systemPromptFile: string,
 ): Promise<string> {
@@ -164,6 +172,50 @@ function runClaude(
       } else {
         reject(new Error(stderr || `claude exited with code ${code}`));
       }
+    });
+
+    child.on("error", (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+  });
+}
+
+function runClaudeAgent(userPrompt: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const args = [
+      "--agent",
+      "planner",
+      "-p",
+      userPrompt,
+      "--output-format",
+      "text",
+    ];
+
+    const child = spawn("claude", args, {
+      stdio: ["ignore", "pipe", "pipe"],
+      shell: true,
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.on("data", (chunk: Buffer) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
+
+    const timer = setTimeout(() => {
+      child.kill();
+      reject(new Error("Claude Code CLI timed out after 5 minutes"));
+    }, 300_000);
+
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      if (code === 0) resolve(stdout);
+      else reject(new Error(stderr || `claude exited with code ${code}`));
     });
 
     child.on("error", (err) => {

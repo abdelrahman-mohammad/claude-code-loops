@@ -15,7 +15,7 @@ smart_stop_check() {
     local test_exit="$1"
     local review_output="$2"
 
-    if [[ $test_exit -eq 0 ]] && echo "$review_output" | grep -qiE "(LGTM|looks good to me|no issues found)"; then
+    if [[ $test_exit -eq 0 ]] && echo "$review_output" | grep -qiE "(LGTM|looks good to me|no issues found|PASS_WITH_SUGGESTIONS|Verdict:.*PASS)"; then
         log "SMART STOP: Tests pass AND review approved"
         return 0
     fi
