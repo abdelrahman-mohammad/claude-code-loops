@@ -154,6 +154,7 @@ function runClaudeStream(
       promptFile,
       "--output-format",
       "stream-json",
+      "--verbose",
       ...(options.agent ? [] : ["--max-turns", "3"]),
     ];
 
