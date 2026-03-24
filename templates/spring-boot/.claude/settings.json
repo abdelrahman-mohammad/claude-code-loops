@@ -1,0 +1,27 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "INPUT=$(cat); FILE_PATH=$(echo \"$INPUT\" | jq -r '.tool_input.file_path // empty'); if [ -n \"$FILE_PATH\" ] && echo \"$FILE_PATH\" | grep -q '\\.java$'; then google-java-format -i \"$FILE_PATH\" 2>/dev/null && echo '{\"additionalContext\": \"Java file auto-formatted with google-java-format\"}'; fi",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "INPUT=$(cat); if [ \"$(echo $INPUT | jq -r '.stop_hook_active // false')\" = 'true' ]; then exit 0; fi; if [ -f pom.xml ]; then COMPILE_OUT=$(mvn compile -q 2>&1); if [ $? -ne 0 ]; then echo \"Compilation failed: $COMPILE_OUT\" >&2; exit 2; fi; fi; exit 0",
+            "timeout": 120
+          }
+        ]
+      }
+    ]
+  }
+}

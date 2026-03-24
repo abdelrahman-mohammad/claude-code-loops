@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "FILE=$(cat | jq -r '.tool_input.file_path // empty'); case \"$FILE\" in *.lock|.env|.env.*|dist/*|build/*|target/*|node_modules/*|.git/*) echo '{\"permissionDecision\": \"deny\", \"additionalContext\": \"Protected file - do not modify\"}'; exit 0;; esac"
+          }
+        ]
+      }
+    ]
+  }
+}
