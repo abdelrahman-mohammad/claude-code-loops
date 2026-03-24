@@ -28,6 +28,14 @@
     "cli"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/abdelrahman-mohammad/claude-code-loops.git"
+  },
+  "bugs": {
+    "url": "https://github.com/abdelrahman-mohammad/claude-code-loops/issues"
+  },
+  "homepage": "https://github.com/abdelrahman-mohammad/claude-code-loops#readme",
   "engines": {
     "node": ">=18"
   },
