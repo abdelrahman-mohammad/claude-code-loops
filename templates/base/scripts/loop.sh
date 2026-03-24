@@ -26,6 +26,9 @@
 #   --no-commit                 Skip auto-commit after each phase
 #   --log-dir DIR               Log directory [.claude/logs]
 #   --permission-mode MODE      Permission mode [acceptEdits]
+#   --monitor                   Live tmux dashboard [OFF]
+#   --report <file>             Generate post-loop report [loop-report.md]
+#   --no-report                 Skip report generation
 
 set -euo pipefail
 
@@ -35,6 +38,8 @@ source "$SCRIPT_DIR/lib/logging.sh"
 source "$SCRIPT_DIR/lib/rate-limit.sh"
 source "$SCRIPT_DIR/lib/git-commit.sh"
 source "$SCRIPT_DIR/lib/stopping.sh"
+source "$SCRIPT_DIR/lib/monitor.sh"
+source "$SCRIPT_DIR/lib/report.sh"
 
 # ── Defaults ───────────────────────────────────────────────
 TASK_FILE=""
@@ -46,6 +51,9 @@ REVIEWER_TURNS=8
 AUTO_COMMIT=true
 PERMISSION_MODE="acceptEdits"
 REVIEW_FILE="review-output.md"
+ENABLE_MONITOR=false
+REPORT_FILE="loop-report.md"
+ENABLE_REPORT=true
 
 # Stopping condition defaults
 STOP_ON_PASS=true
@@ -80,6 +88,9 @@ while [[ $# -gt 0 ]]; do
     --coverage-threshold)      COVERAGE_THRESHOLD="$2"; shift 2 ;;
     --token-budget)            TOKEN_BUDGET="$2"; shift 2 ;;
     --time-limit)              MAX_DURATION="$2"; shift 2 ;;
+    --monitor)                 ENABLE_MONITOR=true; shift ;;
+    --report)                  REPORT_FILE="$2"; ENABLE_REPORT=true; shift 2 ;;
+    --no-report)               ENABLE_REPORT=false; shift ;;
     -h|--help)
       sed -n '2,/^$/p' "$0" | sed 's/^# \?//'
       exit 0
@@ -120,9 +131,15 @@ log ""
 STOP_REASON=""
 LAST_ITERATION=0
 
+# Start monitor if requested
+if [ "$ENABLE_MONITOR" = true ]; then
+  start_monitor "$LOG_DIR/loop.log" || true
+fi
+
 for i in $(seq 1 "$ITERATIONS"); do
   LAST_ITERATION=$i
   log "=== ITERATION $i/$ITERATIONS ==="
+  [ "$MONITOR_ENABLED" = true ] && update_status "$i" "$ITERATIONS" "starting"
 
   # ── Coder phase ──────────────────────────────────────────
   CODER_PROMPT="$TASK_CONTENT"
@@ -146,6 +163,7 @@ $TASK_CONTENT"
   fi
 
   log "Coder phase..."
+  [ "$MONITOR_ENABLED" = true ] && update_status "$i" "$ITERATIONS" "coder"
   CODER_OUTPUT=""
   if run_with_retry claude -p "$CODER_PROMPT" \
     --agent "$CODER_AGENT" \
@@ -184,6 +202,7 @@ $TASK_CONTENT"
 
   # ── Reviewer phase ───────────────────────────────────────
   log "Reviewer phase..."
+  [ "$MONITOR_ENABLED" = true ] && update_status "$i" "$ITERATIONS" "reviewer"
   DIFF=$(git diff HEAD~1 2>/dev/null || git diff)
 
   REVIEW_OUTPUT=$(echo "$DIFF" | claude -p \
@@ -237,3 +256,11 @@ fi
 [[ -f "$REVIEW_FILE" ]] && log "Remaining findings saved in $REVIEW_FILE"
 log "Cumulative cost: \$$TOTAL_COST"
 log "Elapsed time: ${SECONDS}s"
+
+# Generate report
+if [ "$ENABLE_REPORT" = true ]; then
+  FINAL_VERDICT="${STOP_REASON:-max_iterations}"
+  generate_report "$LAST_ITERATION" "$FINAL_VERDICT"
+fi
+
+[ "$MONITOR_ENABLED" = true ] && update_status "$LAST_ITERATION" "$ITERATIONS" "complete"

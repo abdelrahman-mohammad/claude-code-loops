@@ -39,6 +39,8 @@ describe("init --stack node", () => {
     expect(fs.existsSync(path.join(tmpDir, "scripts", "loop.sh"))).toBe(true);
     expect(fs.existsSync(path.join(tmpDir, "scripts", "lib", "logging.sh"))).toBe(true);
     expect(fs.existsSync(path.join(tmpDir, "scripts", "lib", "stopping.sh"))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, "scripts", "lib", "monitor.sh"))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, "scripts", "lib", "report.sh"))).toBe(true);
 
     // Node files
     expect(fs.existsSync(path.join(tmpDir, ".claude", "agents", "coder.md"))).toBe(true);
