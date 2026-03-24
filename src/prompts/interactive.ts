@@ -8,7 +8,6 @@ export interface PromptResults {
   stack: StackName;
   model: ModelName;
   mergeBehavior: MergeBehavior;
-  includeScripts: boolean;
 }
 
 export async function runPrompts(options: {
@@ -28,7 +27,6 @@ export async function runPrompts(options: {
       stack: resolvedStack,
       model: (model as ModelName) || "sonnet",
       mergeBehavior: existingClaudeDir ? "merge" : "overwrite",
-      includeScripts: true,
     };
   }
 
@@ -101,11 +99,6 @@ export async function runPrompts(options: {
           ],
         });
       },
-      includeScripts: () =>
-        p.confirm({
-          message: "Include orchestration script (scripts/loop.sh)?",
-          initialValue: true,
-        }),
     },
     {
       onCancel: () => {
@@ -119,6 +112,5 @@ export async function runPrompts(options: {
     stack: result.stack,
     model: result.model,
     mergeBehavior: result.mergeBehavior,
-    includeScripts: result.includeScripts,
   };
 }
