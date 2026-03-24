@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "FILE=\"$CLAUDE_TOOL_INPUT_FILE_PATH\"; if [ -n \"$FILE\" ] && echo \"$FILE\" | grep -qE '\\.(ts|tsx|js|jsx|css|json|md)$'; then npx prettier --write \"$FILE\" 2>/dev/null; fi; if [ -n \"$FILE\" ] && echo \"$FILE\" | grep -qE '\\.(ts|tsx|js|jsx)$'; then npx eslint --fix \"$FILE\" 2>/dev/null; fi; exit 0",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

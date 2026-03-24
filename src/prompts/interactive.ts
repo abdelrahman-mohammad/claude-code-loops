@@ -41,8 +41,20 @@ export async function runPrompts(options: {
               value: "node" as StackName,
             },
             {
+              label: `Next.js${detectedStack === "nextjs" ? pc.dim(" (detected)") : ""}`,
+              value: "nextjs" as StackName,
+            },
+            {
               label: `Java / Spring Boot${detectedStack === "spring-boot" ? pc.dim(" (detected)") : ""}`,
               value: "spring-boot" as StackName,
+            },
+            {
+              label: `Python / FastAPI${detectedStack === "fastapi" ? pc.dim(" (detected)") : ""}`,
+              value: "fastapi" as StackName,
+            },
+            {
+              label: `Python / Django${detectedStack === "django" ? pc.dim(" (detected)") : ""}`,
+              value: "django" as StackName,
             },
             {
               label: `Generic${detectedStack === "generic" ? pc.dim(" (detected)") : ""}`,

@@ -5,6 +5,9 @@ import os from "node:os";
 import { installBase } from "../../src/installers/base.js";
 import { installNode } from "../../src/installers/node.js";
 import { installSpringBoot } from "../../src/installers/spring-boot.js";
+import { installFastapi } from "../../src/installers/fastapi.js";
+import { installDjango } from "../../src/installers/django.js";
+import { installNextjs } from "../../src/installers/nextjs.js";
 import { installGeneric } from "../../src/installers/generic.js";
 import type { CopyOptions } from "../../src/utils/copy.js";
 
@@ -35,6 +38,7 @@ describe("init --stack node", () => {
     expect(fs.existsSync(path.join(tmpDir, ".claudeignore"))).toBe(true);
     expect(fs.existsSync(path.join(tmpDir, "scripts", "loop.sh"))).toBe(true);
     expect(fs.existsSync(path.join(tmpDir, "scripts", "lib", "logging.sh"))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, "scripts", "lib", "stopping.sh"))).toBe(true);
 
     // Node files
     expect(fs.existsSync(path.join(tmpDir, ".claude", "agents", "coder.md"))).toBe(true);
@@ -97,6 +101,66 @@ describe("init --stack spring-boot", () => {
     const claudeMd = fs.readFileSync(path.join(tmpDir, "CLAUDE.md"), "utf-8");
     expect(claudeMd).toContain("Spring Boot");
     expect(claudeMd).toContain("mvn");
+  });
+});
+
+describe("init --stack fastapi", () => {
+  it("scaffolds base + fastapi files", async () => {
+    await installBase(tmpDir, defaultOptions);
+    await installFastapi(tmpDir, defaultOptions);
+
+    expect(fs.existsSync(path.join(tmpDir, ".claude", "agents", "coder.md"))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, ".claude", "agents", "reviewer.md"))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, ".claude", "rules", "python-style.md"))).toBe(true);
+
+    const settings = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, ".claude", "settings.json"), "utf-8"),
+    );
+    expect(settings.hooks.PostToolUse).toBeDefined();
+
+    const claudeMd = fs.readFileSync(path.join(tmpDir, "CLAUDE.md"), "utf-8");
+    expect(claudeMd).toContain("FastAPI");
+    expect(claudeMd).toContain("uvicorn");
+  });
+});
+
+describe("init --stack django", () => {
+  it("scaffolds base + django files", async () => {
+    await installBase(tmpDir, defaultOptions);
+    await installDjango(tmpDir, defaultOptions);
+
+    expect(fs.existsSync(path.join(tmpDir, ".claude", "agents", "coder.md"))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, ".claude", "agents", "reviewer.md"))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, ".claude", "rules", "django-patterns.md"))).toBe(true);
+
+    const settings = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, ".claude", "settings.json"), "utf-8"),
+    );
+    expect(settings.hooks.PostToolUse).toBeDefined();
+
+    const claudeMd = fs.readFileSync(path.join(tmpDir, "CLAUDE.md"), "utf-8");
+    expect(claudeMd).toContain("Django");
+    expect(claudeMd).toContain("manage.py");
+  });
+});
+
+describe("init --stack nextjs", () => {
+  it("scaffolds base + nextjs files", async () => {
+    await installBase(tmpDir, defaultOptions);
+    await installNextjs(tmpDir, defaultOptions);
+
+    expect(fs.existsSync(path.join(tmpDir, ".claude", "agents", "coder.md"))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, ".claude", "agents", "reviewer.md"))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, ".claude", "rules", "nextjs-patterns.md"))).toBe(true);
+
+    const settings = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, ".claude", "settings.json"), "utf-8"),
+    );
+    expect(settings.hooks.PostToolUse).toBeDefined();
+
+    const claudeMd = fs.readFileSync(path.join(tmpDir, "CLAUDE.md"), "utf-8");
+    expect(claudeMd).toContain("Next.js");
+    expect(claudeMd).toContain("next/image");
   });
 });
 
