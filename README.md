@@ -1,5 +1,9 @@
 # claude-code-loops
 
+[![CI](https://github.com/abdelrahman-mohammad/claude-code-loops/actions/workflows/ci.yml/badge.svg)](https://github.com/abdelrahman-mohammad/claude-code-loops/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/claude-code-loops)](https://www.npmjs.com/package/claude-code-loops)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 Autonomous code-review-fix loops for [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 
 Scaffolds Claude Code configurations (agents, hooks, rules, CLAUDE.md, orchestration scripts) for automated coder-reviewer loops across multiple tech stacks.
@@ -7,19 +11,31 @@ Scaffolds Claude Code configurations (agents, hooks, rules, CLAUDE.md, orchestra
 ## Quick Start
 
 ```bash
+# 1. Scaffold into your project
+cd your-project
 npx claude-code-loops init
+
+# 2. Write a task
+echo "Add input validation to all API endpoints" > task.md
+
+# 3. Run the loop (coder → commit → build gate → reviewer → repeat)
+bash scripts/loop.sh task.md
 ```
 
-Or specify a stack directly:
+That's it. The loop runs up to 10 iterations with smart stopping -- it exits early when tests pass and the reviewer gives LGTM.
+
+### Pick a stack
 
 ```bash
-npx claude-code-loops init --stack node
-npx claude-code-loops init --stack spring-boot
-npx claude-code-loops init --stack fastapi
-npx claude-code-loops init --stack django
-npx claude-code-loops init --stack nextjs
-npx claude-code-loops init --stack generic
+npx claude-code-loops init --stack node         # Node.js / TypeScript
+npx claude-code-loops init --stack spring-boot   # Java / Spring Boot
+npx claude-code-loops init --stack fastapi       # Python / FastAPI
+npx claude-code-loops init --stack django        # Python / Django
+npx claude-code-loops init --stack nextjs        # Next.js
+npx claude-code-loops init --stack generic       # Any project
 ```
+
+Or just run `npx claude-code-loops init` -- it auto-detects your stack.
 
 ## What Gets Created
 
@@ -47,14 +63,16 @@ your-project/
 
 ## Stacks
 
-| Stack | Coder Agent | Reviewer Agent | Auto-format Hook | Extras |
-|-------|-------------|----------------|------------------|--------|
-| **Node.js/TypeScript** | Senior TS engineer (Sonnet) | Principal engineer reviewer (Sonnet) | Prettier | TypeScript rules |
-| **Java/Spring Boot** | Spring Boot engineer (Opus) | Spring reviewer (Sonnet) | google-java-format | Java style + Spring DI rules, compile-check Stop hook |
-| **Python/FastAPI** | Async Python engineer (Sonnet) | FastAPI reviewer (Sonnet) | ruff format + check | Pydantic v2 rules, async correctness |
-| **Python/Django** | Django engineer (Sonnet) | Django reviewer (Sonnet) | ruff + djlint | ORM patterns, N+1 detection |
-| **Next.js** | Full-stack Next.js engineer (Sonnet) | Next.js reviewer (Sonnet) | Prettier + ESLint | App Router rules, Server/Client boundaries |
-| **Generic** | -- | General code reviewer (Sonnet) | -- | Minimal setup |
+| Stack | Coder Agent | Reviewer Agent | Auto-format | Extras |
+|-------|-------------|----------------|-------------|--------|
+| **Node.js/TypeScript** | Senior TS engineer | Principal engineer reviewer | Prettier | TypeScript strict rules |
+| **Java/Spring Boot** | Spring Boot engineer | Spring reviewer | google-java-format | Spring DI rules, compile-check Stop hook |
+| **Python/FastAPI** | Async Python engineer | FastAPI reviewer | ruff format + check | Pydantic v2 rules, async correctness |
+| **Python/Django** | Django engineer | Django reviewer | ruff + djlint | ORM patterns, N+1 detection |
+| **Next.js** | Full-stack Next.js engineer | Next.js reviewer | Prettier + ESLint | App Router rules, Server/Client boundaries |
+| **Generic** | -- | General code reviewer | -- | Minimal setup for any project |
+
+All agents run on Sonnet by default. The coder and reviewer run in **separate context windows** -- the reviewer cannot see the coder's reasoning, providing genuine independent review.
 
 ## Commands
 
@@ -73,14 +91,9 @@ Options:
 Convert requirements into structured task files for the loop:
 
 ```bash
-# From a requirements file
-claude-code-loops plan requirements.md
-
-# From a GitHub issue
-claude-code-loops plan --input https://github.com/org/repo/issues/42
-
-# From inline text
-claude-code-loops plan --prompt "Add JWT authentication to the API"
+claude-code-loops plan requirements.md                                    # From a file
+claude-code-loops plan --input https://github.com/org/repo/issues/42     # From a GitHub issue
+claude-code-loops plan --prompt "Add JWT authentication to the API"       # From inline text
 ```
 
 ### `run` -- Execute the Loop
@@ -88,11 +101,8 @@ claude-code-loops plan --prompt "Add JWT authentication to the API"
 First-class CLI wrapper around `loop.sh` with signal forwarding:
 
 ```bash
-# Run with defaults (10 iterations, smart stopping)
-claude-code-loops run task.md
-
-# Customize iterations and agents
-claude-code-loops run task.md --iterations 5 --coder-turns 30
+claude-code-loops run task.md                              # Defaults: 10 iterations, smart stopping
+claude-code-loops run task.md --iterations 5 --coder-turns 30   # Customize
 ```
 
 ### Running the Loop Directly
@@ -110,11 +120,11 @@ Options:
   --log-dir DIR           Log directory (default: .claude/logs)
   --permission-mode MODE  Permission mode (default: acceptEdits)
 
-Stopping conditions:
-  --stop-on-pass          Exit on tests pass + LGTM review (default: ON)
-  --stop-on-no-progress   Circuit breaker for stuck agents (default: ON)
-  --build-gate            Skip reviewer on build failure (default: ON)
-  --zero-diff-halt        Halt on no changes for 2 iterations (default: ON)
+Stopping conditions (all ON by default except opt-in):
+  --stop-on-pass          Exit on tests pass + LGTM review
+  --stop-on-no-progress   Circuit breaker for stuck agents
+  --build-gate            Skip reviewer on build failure
+  --zero-diff-halt        Halt on no changes for 2 iterations
   --coverage-threshold N  Stop when coverage meets target (opt-in)
   --token-budget N        Cost ceiling across iterations (opt-in)
   --time-limit N          Wall-clock timeout in minutes (opt-in)
@@ -123,13 +133,40 @@ Monitoring:
   --monitor               Live tmux dashboard showing iteration progress
 ```
 
+## How It Works
+
+```
+┌─────────┐     ┌───────────┐     ┌────────────┐     ┌──────────┐
+│  Task /  │────>│   Coder   │────>│ Auto-commit│────>│  Build   │
+│ Findings │     │   Agent   │     │            │     │   Gate   │
+└─────────┘     └───────────┘     └────────────┘     └────┬─────┘
+     ^                                                     │
+     │                                              Pass? ─┤── No: back to Coder
+     │                                                     │
+     │                                                    Yes
+     │                                                     │
+     │           ┌───────────┐     ┌────────────┐          v
+     └───────────│ Stop      │<────│  Reviewer  │<─────────┘
+      (if FAIL)  │ Conditions│     │   Agent    │
+                 └─────┬─────┘     └────────────┘
+                       │
+                 Met? ─┤── Yes: exit with report
+                       │── No: next iteration
+```
+
+1. **Coder agent** reads the task (or review findings) and implements/fixes code
+2. **Auto-commit** saves the changes
+3. **Build gate** checks compilation -- skips reviewer on build failure
+4. **Reviewer agent** examines the diff, runs tests, produces PASS/FAIL verdict
+5. **Stop conditions** evaluate: tests passing, progress stalled, budget exceeded, coverage met
+6. If no stop condition triggers: findings feed back to coder for next iteration
+
 ## Using Agents Directly
 
-```bash
-# Use the coder agent
-claude --agent coder "Implement the user registration endpoint"
+The scaffolded agents work standalone too:
 
-# Use the reviewer agent
+```bash
+claude --agent coder "Implement the user registration endpoint"
 claude --agent reviewer "Review all recent changes"
 ```
 
@@ -143,19 +180,10 @@ Running `init` on a project with an existing `.claude/` directory offers three o
 
 Re-running `init` is safe -- `CLAUDE.md` uses comment markers to replace only the generated section, preserving your edits.
 
-## How It Works
+## Contributing
 
-The loop follows a simple cycle:
-
-1. **Coder agent** reads the task (or review findings from the previous iteration) and implements/fixes code
-2. **Auto-commit** saves the changes
-3. **Build gate** checks compilation (skips reviewer on build failure)
-4. **Reviewer agent** examines the diff, runs tests, and produces a PASS/FAIL verdict
-5. **Stop conditions** evaluate: tests passing, progress stalled, budget exceeded, coverage met
-6. If no stop condition triggers: review findings are fed back to the coder for the next iteration
-
-The coder and reviewer run in separate context windows -- the reviewer literally cannot see the coder's reasoning, providing genuine independent review.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions, development commands, and how to add a new stack.
 
 ## License
 
-MIT
+[MIT](LICENSE)
