@@ -29,7 +29,9 @@ export async function initCommand(options: InitOptions): Promise<void> {
 
     // Validate stack
     if (!(stack in installerMap)) {
-      p.log.error(`Unknown stack: ${stack}. Choose from: node, spring-boot, generic`);
+      p.log.error(
+        `Unknown stack: ${stack}. Choose from: node, spring-boot, generic`,
+      );
       process.exit(1);
     }
 
@@ -44,7 +46,9 @@ export async function initCommand(options: InitOptions): Promise<void> {
     if (mergeBehavior === "backup" && existingClaudeDir) {
       const backupPath = await backupClaudeDir(destDir);
       if (backupPath) {
-        p.log.info(`Backed up existing .claude/ to ${pc.dim(path.basename(backupPath))}`);
+        p.log.info(
+          `Backed up existing .claude/ to ${pc.dim(path.basename(backupPath))}`,
+        );
       }
     }
 
@@ -80,7 +84,9 @@ export async function initCommand(options: InitOptions): Promise<void> {
 
       p.outro("Done!");
     } else {
-      console.log(`Scaffolded ${stackLabels[stack]} configuration (${allFiles.length} files)`);
+      console.log(
+        `Scaffolded ${stackLabels[stack]} configuration (${allFiles.length} files)`,
+      );
       for (const file of allFiles.sort()) {
         console.log(`  + ${file}`);
       }

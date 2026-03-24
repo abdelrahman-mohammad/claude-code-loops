@@ -7,7 +7,13 @@ import { installNextjs } from "./nextjs.js";
 import { installGeneric } from "./generic.js";
 import type { CopyOptions } from "../utils/copy.js";
 
-export type StackName = "node" | "spring-boot" | "fastapi" | "django" | "nextjs" | "generic";
+export type StackName =
+  | "node"
+  | "spring-boot"
+  | "fastapi"
+  | "django"
+  | "nextjs"
+  | "generic";
 
 export type Installer = (
   destDir: string,

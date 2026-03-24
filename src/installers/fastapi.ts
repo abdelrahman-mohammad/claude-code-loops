@@ -1,5 +1,9 @@
 import path from "node:path";
-import { copyTemplateDir, TEMPLATES_DIR, type CopyOptions } from "../utils/copy.js";
+import {
+  copyTemplateDir,
+  TEMPLATES_DIR,
+  type CopyOptions,
+} from "../utils/copy.js";
 
 export async function installFastapi(
   destDir: string,

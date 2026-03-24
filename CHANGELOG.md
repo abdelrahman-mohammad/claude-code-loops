@@ -8,14 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
 - `plan` command — generate structured task files from requirements, GitHub issues, or inline prompts
 - `run` command — first-class CLI wrapper around loop.sh with signal forwarding
 - `--monitor` flag for loop.sh — live tmux dashboard showing iteration progress
 - Post-loop reporting — generates `loop-report.md` with cost, iteration, and diff summaries
+- Project `.claude/` dev configuration:
+  - Rules: no-attribution, code-style, template-integrity (path-scoped)
+  - Skills: template-guide (agent/hook/rule authoring reference), bash-dev (portability, ShellCheck, bats-core)
+  - Hooks: auto-format (Prettier PostToolUse), type-check (tsc Stop hook), auto-test (vitest PostToolUse)
+  - PreToolUse guards: protected file blocking, push-to-main blocking
+  - SessionStart hook: git branch context injection
+  - Checkpoint commit Stop hook safety net
+  - Git workflow instructions in CLAUDE.md (incremental conventional commits)
 
 ## [0.1.1] - 2026-03-24
 
 ### Added
+
 - Python/FastAPI stack — async correctness agents, ruff auto-format hooks, Pydantic v2 rules
 - Python/Django stack — N+1 query detection agents, ruff + djlint hooks, ORM pattern rules
 - Next.js stack — Server/Client boundary agents, prettier + eslint hooks, App Router rules
@@ -28,15 +38,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `--token-budget` — cost ceiling across iterations (opt-in)
   - `--time-limit` — wall-clock timeout (opt-in)
 - `stopping.sh` helper library with composable stop condition functions
-- Stack auto-detection for FastAPI (pyproject.toml/requirements.txt), Django (manage.py), Next.js (next.config.*)
+- Stack auto-detection for FastAPI (pyproject.toml/requirements.txt), Django (manage.py), Next.js (next.config.\*)
 
 ### Changed
+
 - Default `--iterations` increased from 3 to 10 (smart stopping is now the primary exit)
 - Stack detection priority: Next.js > Node > Django > FastAPI > Spring Boot > generic
 
 ## [0.1.0] - 2026-03-24
 
 ### Added
+
 - `init` command with interactive @clack/prompts flow
 - Node.js/TypeScript stack — coder + reviewer agents, Prettier hooks, TypeScript rules
 - Java/Spring Boot stack — spring-coder (Opus) + spring-reviewer agents, google-java-format hooks, compile-check Stop hook

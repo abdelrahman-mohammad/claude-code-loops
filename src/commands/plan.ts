@@ -17,7 +17,10 @@ export async function planCommand(
   input: string | undefined,
   options: PlanOptions,
 ): Promise<void> {
-  p.intro(pc.cyan("claude-code-loops plan") + " — generate task file from requirements");
+  p.intro(
+    pc.cyan("claude-code-loops plan") +
+      " — generate task file from requirements",
+  );
 
   let requirements: string;
 
@@ -106,7 +109,8 @@ Generate the task file now.`;
     const taskCount = (output.match(/- \[ \]/g) || []).length;
 
     p.note(
-      preview + (lines.length > 15 ? `\n... (${lines.length - 15} more lines)` : ""),
+      preview +
+        (lines.length > 15 ? `\n... (${lines.length - 15} more lines)` : ""),
       `${taskCount} tasks generated`,
     );
 
@@ -115,9 +119,7 @@ Generate the task file now.`;
     );
   } catch (err) {
     spinner.stop("Failed");
-    p.log.error(
-      "Claude Code CLI failed. Is it installed and authenticated?",
-    );
+    p.log.error("Claude Code CLI failed. Is it installed and authenticated?");
     if (err instanceof Error) p.log.message(pc.dim(err.message));
     process.exit(1);
   }

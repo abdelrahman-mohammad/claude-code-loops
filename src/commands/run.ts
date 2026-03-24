@@ -26,7 +26,9 @@ export async function runCommand(
   // Resolve loop script
   const projectScript = path.join(process.cwd(), "scripts", "loop.sh");
   const fallbackScript = path.join(TEMPLATES_DIR, "base", "scripts", "loop.sh");
-  const loopScript = fs.existsSync(projectScript) ? projectScript : fallbackScript;
+  const loopScript = fs.existsSync(projectScript)
+    ? projectScript
+    : fallbackScript;
 
   if (!fs.existsSync(loopScript)) {
     p.log.error("No loop.sh found. Run `claude-code-loops init` first.");
@@ -55,12 +57,16 @@ export async function runCommand(
 
   if (options.iterations) args.push("--iterations", String(options.iterations));
   if (options.coderAgent) args.push("--coder-agent", options.coderAgent);
-  if (options.reviewerAgent) args.push("--reviewer-agent", options.reviewerAgent);
+  if (options.reviewerAgent)
+    args.push("--reviewer-agent", options.reviewerAgent);
   if (options.stopOnPass === false) args.push("--no-stop-on-pass");
-  if (options.circuitBreaker) args.push("--no-progress-threshold", String(options.circuitBreaker));
+  if (options.circuitBreaker)
+    args.push("--no-progress-threshold", String(options.circuitBreaker));
   if (options.timeLimit) args.push("--time-limit", options.timeLimit);
-  if (options.tokenBudget) args.push("--token-budget", String(options.tokenBudget));
-  if (options.coverageThreshold) args.push("--coverage-threshold", String(options.coverageThreshold));
+  if (options.tokenBudget)
+    args.push("--token-budget", String(options.tokenBudget));
+  if (options.coverageThreshold)
+    args.push("--coverage-threshold", String(options.coverageThreshold));
   if (options.monitor) args.push("--monitor");
   if (options.noCommit) args.push("--no-commit");
 

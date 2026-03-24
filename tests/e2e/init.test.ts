@@ -33,19 +33,37 @@ describe("init --stack node", () => {
     await installNode(tmpDir, defaultOptions);
 
     // Base files
-    expect(fs.existsSync(path.join(tmpDir, ".claude", "settings.json"))).toBe(true);
-    expect(fs.existsSync(path.join(tmpDir, ".claude", "rules", "safety.md"))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, ".claude", "settings.json"))).toBe(
+      true,
+    );
+    expect(
+      fs.existsSync(path.join(tmpDir, ".claude", "rules", "safety.md")),
+    ).toBe(true);
     expect(fs.existsSync(path.join(tmpDir, ".claudeignore"))).toBe(true);
     expect(fs.existsSync(path.join(tmpDir, "scripts", "loop.sh"))).toBe(true);
-    expect(fs.existsSync(path.join(tmpDir, "scripts", "lib", "logging.sh"))).toBe(true);
-    expect(fs.existsSync(path.join(tmpDir, "scripts", "lib", "stopping.sh"))).toBe(true);
-    expect(fs.existsSync(path.join(tmpDir, "scripts", "lib", "monitor.sh"))).toBe(true);
-    expect(fs.existsSync(path.join(tmpDir, "scripts", "lib", "report.sh"))).toBe(true);
+    expect(
+      fs.existsSync(path.join(tmpDir, "scripts", "lib", "logging.sh")),
+    ).toBe(true);
+    expect(
+      fs.existsSync(path.join(tmpDir, "scripts", "lib", "stopping.sh")),
+    ).toBe(true);
+    expect(
+      fs.existsSync(path.join(tmpDir, "scripts", "lib", "monitor.sh")),
+    ).toBe(true);
+    expect(
+      fs.existsSync(path.join(tmpDir, "scripts", "lib", "report.sh")),
+    ).toBe(true);
 
     // Node files
-    expect(fs.existsSync(path.join(tmpDir, ".claude", "agents", "coder.md"))).toBe(true);
-    expect(fs.existsSync(path.join(tmpDir, ".claude", "agents", "reviewer.md"))).toBe(true);
-    expect(fs.existsSync(path.join(tmpDir, ".claude", "rules", "typescript.md"))).toBe(true);
+    expect(
+      fs.existsSync(path.join(tmpDir, ".claude", "agents", "coder.md")),
+    ).toBe(true);
+    expect(
+      fs.existsSync(path.join(tmpDir, ".claude", "agents", "reviewer.md")),
+    ).toBe(true);
+    expect(
+      fs.existsSync(path.join(tmpDir, ".claude", "rules", "typescript.md")),
+    ).toBe(true);
 
     // CLAUDE.md contains both base and node content
     const claudeMd = fs.readFileSync(path.join(tmpDir, "CLAUDE.md"), "utf-8");
@@ -83,10 +101,18 @@ describe("init --stack spring-boot", () => {
     await installSpringBoot(tmpDir, defaultOptions);
 
     // Spring Boot agents
-    expect(fs.existsSync(path.join(tmpDir, ".claude", "agents", "coder.md"))).toBe(true);
-    expect(fs.existsSync(path.join(tmpDir, ".claude", "agents", "reviewer.md"))).toBe(true);
-    expect(fs.existsSync(path.join(tmpDir, ".claude", "rules", "java-style.md"))).toBe(true);
-    expect(fs.existsSync(path.join(tmpDir, ".claude", "rules", "spring-di.md"))).toBe(true);
+    expect(
+      fs.existsSync(path.join(tmpDir, ".claude", "agents", "coder.md")),
+    ).toBe(true);
+    expect(
+      fs.existsSync(path.join(tmpDir, ".claude", "agents", "reviewer.md")),
+    ).toBe(true);
+    expect(
+      fs.existsSync(path.join(tmpDir, ".claude", "rules", "java-style.md")),
+    ).toBe(true);
+    expect(
+      fs.existsSync(path.join(tmpDir, ".claude", "rules", "spring-di.md")),
+    ).toBe(true);
 
     // Settings has Stop hook
     const settings = JSON.parse(
@@ -111,9 +137,15 @@ describe("init --stack fastapi", () => {
     await installBase(tmpDir, defaultOptions);
     await installFastapi(tmpDir, defaultOptions);
 
-    expect(fs.existsSync(path.join(tmpDir, ".claude", "agents", "coder.md"))).toBe(true);
-    expect(fs.existsSync(path.join(tmpDir, ".claude", "agents", "reviewer.md"))).toBe(true);
-    expect(fs.existsSync(path.join(tmpDir, ".claude", "rules", "python-style.md"))).toBe(true);
+    expect(
+      fs.existsSync(path.join(tmpDir, ".claude", "agents", "coder.md")),
+    ).toBe(true);
+    expect(
+      fs.existsSync(path.join(tmpDir, ".claude", "agents", "reviewer.md")),
+    ).toBe(true);
+    expect(
+      fs.existsSync(path.join(tmpDir, ".claude", "rules", "python-style.md")),
+    ).toBe(true);
 
     const settings = JSON.parse(
       fs.readFileSync(path.join(tmpDir, ".claude", "settings.json"), "utf-8"),
@@ -131,9 +163,17 @@ describe("init --stack django", () => {
     await installBase(tmpDir, defaultOptions);
     await installDjango(tmpDir, defaultOptions);
 
-    expect(fs.existsSync(path.join(tmpDir, ".claude", "agents", "coder.md"))).toBe(true);
-    expect(fs.existsSync(path.join(tmpDir, ".claude", "agents", "reviewer.md"))).toBe(true);
-    expect(fs.existsSync(path.join(tmpDir, ".claude", "rules", "django-patterns.md"))).toBe(true);
+    expect(
+      fs.existsSync(path.join(tmpDir, ".claude", "agents", "coder.md")),
+    ).toBe(true);
+    expect(
+      fs.existsSync(path.join(tmpDir, ".claude", "agents", "reviewer.md")),
+    ).toBe(true);
+    expect(
+      fs.existsSync(
+        path.join(tmpDir, ".claude", "rules", "django-patterns.md"),
+      ),
+    ).toBe(true);
 
     const settings = JSON.parse(
       fs.readFileSync(path.join(tmpDir, ".claude", "settings.json"), "utf-8"),
@@ -151,9 +191,17 @@ describe("init --stack nextjs", () => {
     await installBase(tmpDir, defaultOptions);
     await installNextjs(tmpDir, defaultOptions);
 
-    expect(fs.existsSync(path.join(tmpDir, ".claude", "agents", "coder.md"))).toBe(true);
-    expect(fs.existsSync(path.join(tmpDir, ".claude", "agents", "reviewer.md"))).toBe(true);
-    expect(fs.existsSync(path.join(tmpDir, ".claude", "rules", "nextjs-patterns.md"))).toBe(true);
+    expect(
+      fs.existsSync(path.join(tmpDir, ".claude", "agents", "coder.md")),
+    ).toBe(true);
+    expect(
+      fs.existsSync(path.join(tmpDir, ".claude", "agents", "reviewer.md")),
+    ).toBe(true);
+    expect(
+      fs.existsSync(
+        path.join(tmpDir, ".claude", "rules", "nextjs-patterns.md"),
+      ),
+    ).toBe(true);
 
     const settings = JSON.parse(
       fs.readFileSync(path.join(tmpDir, ".claude", "settings.json"), "utf-8"),
@@ -171,7 +219,9 @@ describe("init --stack generic", () => {
     await installBase(tmpDir, defaultOptions);
     await installGeneric(tmpDir, defaultOptions);
 
-    expect(fs.existsSync(path.join(tmpDir, ".claude", "agents", "reviewer.md"))).toBe(true);
+    expect(
+      fs.existsSync(path.join(tmpDir, ".claude", "agents", "reviewer.md")),
+    ).toBe(true);
     expect(fs.existsSync(path.join(tmpDir, "CLAUDE.md"))).toBe(true);
     expect(fs.existsSync(path.join(tmpDir, ".claudeignore"))).toBe(true);
   });
@@ -192,7 +242,10 @@ describe("merge behavior", () => {
     await installGeneric(tmpDir, mergeOptions);
 
     // Custom file should be preserved
-    const content = fs.readFileSync(path.join(agentDir, "reviewer.md"), "utf-8");
+    const content = fs.readFileSync(
+      path.join(agentDir, "reviewer.md"),
+      "utf-8",
+    );
     expect(content).toBe("my custom reviewer");
   });
 
@@ -223,16 +276,24 @@ describe("merge behavior", () => {
     await installBase(tmpDir, defaultOptions);
     await installGeneric(tmpDir, defaultOptions);
 
-    const firstContent = fs.readFileSync(path.join(tmpDir, "CLAUDE.md"), "utf-8");
+    const firstContent = fs.readFileSync(
+      path.join(tmpDir, "CLAUDE.md"),
+      "utf-8",
+    );
 
     // Run again — should replace the generated section, not duplicate
     await installBase(tmpDir, { ...defaultOptions, mergeBehavior: "merge" });
     await installGeneric(tmpDir, { ...defaultOptions, mergeBehavior: "merge" });
 
-    const secondContent = fs.readFileSync(path.join(tmpDir, "CLAUDE.md"), "utf-8");
+    const secondContent = fs.readFileSync(
+      path.join(tmpDir, "CLAUDE.md"),
+      "utf-8",
+    );
 
     // Count marker occurrences — should still be exactly 2 (one start, one end per section)
-    const startMarkers = (secondContent.match(/<!-- Generated by claude-code-loops -->/g) || []).length;
+    const startMarkers = (
+      secondContent.match(/<!-- Generated by claude-code-loops -->/g) || []
+    ).length;
     // Base and generic each write one, but generic replaces base's section
     // Actually each copyTemplateDir call creates its own section
     expect(startMarkers).toBeGreaterThanOrEqual(1);
@@ -243,6 +304,8 @@ describe("merge behavior", () => {
 
     expect(fs.existsSync(path.join(tmpDir, "scripts", "loop.sh"))).toBe(false);
     // But other base files should still exist
-    expect(fs.existsSync(path.join(tmpDir, ".claude", "settings.json"))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, ".claude", "settings.json"))).toBe(
+      true,
+    );
   });
 });

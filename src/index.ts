@@ -17,7 +17,10 @@ program
 program
   .command("init")
   .description("Scaffold Claude Code configuration for your project")
-  .option("-s, --stack <stack>", "Stack to use (node, spring-boot, fastapi, django, nextjs, generic)")
+  .option(
+    "-s, --stack <stack>",
+    "Stack to use (node, spring-boot, fastapi, django, nextjs, generic)",
+  )
   .option("--no-interactive", "Skip interactive prompts, use defaults")
   .action(async (options) => {
     await initCommand(options);
@@ -47,7 +50,11 @@ program
   .option("--circuit-breaker <n>", "Same-error threshold before halt", parseInt)
   .option("--time-limit <duration>", "Wall-clock timeout (e.g. 30m, 2h)")
   .option("--token-budget <usd>", "Cost ceiling in USD", parseFloat)
-  .option("--coverage-threshold <pct>", "Coverage target percentage", parseFloat)
+  .option(
+    "--coverage-threshold <pct>",
+    "Coverage target percentage",
+    parseFloat,
+  )
   .option("--monitor", "Enable live tmux dashboard")
   .option("--no-commit", "Skip auto-commit after each phase")
   .action(async (taskFile, options) => {

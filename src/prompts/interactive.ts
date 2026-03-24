@@ -28,7 +28,9 @@ export async function runPrompts(options: {
   }
 
   // Interactive mode
-  p.intro(pc.cyan("claude-code-loops") + " — Claude Code configuration scaffolder");
+  p.intro(
+    pc.cyan("claude-code-loops") + " — Claude Code configuration scaffolder",
+  );
 
   const result = await p.group(
     {
@@ -64,7 +66,8 @@ export async function runPrompts(options: {
           initialValue: detectedStack,
         }),
       mergeBehavior: () => {
-        if (!existingClaudeDir) return Promise.resolve("overwrite" as MergeBehavior);
+        if (!existingClaudeDir)
+          return Promise.resolve("overwrite" as MergeBehavior);
         return p.select({
           message: "Existing .claude/ directory found. How to handle?",
           options: [

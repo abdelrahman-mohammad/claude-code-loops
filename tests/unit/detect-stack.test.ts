@@ -20,7 +20,10 @@ describe("detectStack", () => {
   it("detects 'nextjs' when next.config.js exists", () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "detect-stack-"));
     fs.writeFileSync(path.join(tmpDir, "package.json"), "{}");
-    fs.writeFileSync(path.join(tmpDir, "next.config.js"), "module.exports = {}");
+    fs.writeFileSync(
+      path.join(tmpDir, "next.config.js"),
+      "module.exports = {}",
+    );
     expect(detectStack(tmpDir)).toBe("nextjs");
   });
 
@@ -28,7 +31,7 @@ describe("detectStack", () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "detect-stack-"));
     fs.writeFileSync(
       path.join(tmpDir, "package.json"),
-      JSON.stringify({ dependencies: { "next": "15.0.0" } }),
+      JSON.stringify({ dependencies: { next: "15.0.0" } }),
     );
     expect(detectStack(tmpDir)).toBe("nextjs");
   });
@@ -37,7 +40,7 @@ describe("detectStack", () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "detect-stack-"));
     fs.writeFileSync(
       path.join(tmpDir, "manage.py"),
-      '#!/usr/bin/env python\nimport django\ndjango.setup()',
+      "#!/usr/bin/env python\nimport django\ndjango.setup()",
     );
     expect(detectStack(tmpDir)).toBe("django");
   });
@@ -62,7 +65,10 @@ describe("detectStack", () => {
 
   it("detects 'fastapi' when requirements.txt contains fastapi", () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "detect-stack-"));
-    fs.writeFileSync(path.join(tmpDir, "requirements.txt"), "fastapi>=0.100\nuvicorn\n");
+    fs.writeFileSync(
+      path.join(tmpDir, "requirements.txt"),
+      "fastapi>=0.100\nuvicorn\n",
+    );
     expect(detectStack(tmpDir)).toBe("fastapi");
   });
 

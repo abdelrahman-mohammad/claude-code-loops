@@ -7,11 +7,16 @@ type HookEntry = { matcher?: string; hooks: unknown[] };
  * - Permission arrays are unioned with dedup
  * - Scalars prefer existing values
  */
-export function mergeSettings(existing: Settings, incoming: Settings): Settings {
+export function mergeSettings(
+  existing: Settings,
+  incoming: Settings,
+): Settings {
   const merged = structuredClone(existing);
 
   // Merge hooks
-  const incomingHooks = incoming.hooks as Record<string, HookEntry[]> | undefined;
+  const incomingHooks = incoming.hooks as
+    | Record<string, HookEntry[]>
+    | undefined;
   if (incomingHooks) {
     if (!merged.hooks) merged.hooks = {};
     const mergedHooks = merged.hooks as Record<string, HookEntry[]>;
@@ -34,7 +39,9 @@ export function mergeSettings(existing: Settings, incoming: Settings): Settings 
   }
 
   // Merge permissions
-  const incomingPerms = incoming.permissions as Record<string, string[]> | undefined;
+  const incomingPerms = incoming.permissions as
+    | Record<string, string[]>
+    | undefined;
   if (incomingPerms) {
     if (!merged.permissions) merged.permissions = {};
     const mergedPerms = merged.permissions as Record<string, string[]>;

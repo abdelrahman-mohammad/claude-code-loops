@@ -7,9 +7,7 @@ const END_MARKER = "<!-- End claude-code-loops section -->";
 describe("mergeCLAUDEmd", () => {
   it("when existing is empty, wraps incoming with markers", () => {
     const result = mergeCLAUDEmd("", "New content here");
-    expect(result).toBe(
-      `${START_MARKER}\nNew content here\n${END_MARKER}\n`,
-    );
+    expect(result).toBe(`${START_MARKER}\nNew content here\n${END_MARKER}\n`);
   });
 
   it("when no markers exist, appends with separator and markers", () => {
