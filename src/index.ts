@@ -10,7 +10,7 @@ const pkg = require("../package.json");
 const program = new Command();
 
 program
-  .name("claude-code-loops")
+  .name(process.env.CCL_BIN_NAME ?? "claude-code-loops")
   .description("Autonomous code-review-fix loops for Claude Code")
   .version(pkg.version);
 
