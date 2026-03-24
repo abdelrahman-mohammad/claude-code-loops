@@ -399,6 +399,28 @@ describe("init generates ccl.json", () => {
   });
 });
 
+describe("init scaffolds new agents", () => {
+  it("scaffolds planner and debugger agents", async () => {
+    await installBase(tmpDir, defaultOptions);
+
+    expect(
+      fs.existsSync(path.join(tmpDir, ".claude", "agents", "planner.md")),
+    ).toBe(true);
+    expect(
+      fs.existsSync(path.join(tmpDir, ".claude", "agents", "debugger.md")),
+    ).toBe(true);
+  });
+
+  it("generic stack includes coder agent", async () => {
+    await installBase(tmpDir, defaultOptions);
+    await installGeneric(tmpDir, defaultOptions);
+
+    expect(
+      fs.existsSync(path.join(tmpDir, ".claude", "agents", "coder.md")),
+    ).toBe(true);
+  });
+});
+
 describe("config command integration", () => {
   it("updates model for all agents via applyConfigFlags", async () => {
     await installBase(tmpDir, defaultOptions);
