@@ -5,10 +5,11 @@
   "type": "module",
   "bin": {
     "claude-code-loops": "./dist/index.js",
-    "ccl": "./dist/index.js"
+    "ccl": "./bin/ccl.js"
   },
   "main": "./dist/index.js",
   "files": [
+    "bin",
     "dist",
     "templates"
   ],

@@ -6,9 +6,26 @@ import { runPrompts } from "../prompts/interactive.js";
 import { installBase, installerMap, stackLabels } from "../installers/index.js";
 import { detectStack } from "../utils/detect-stack.js";
 import { backupClaudeDir, type MergeBehavior } from "../utils/copy.js";
+import {
+  type CclConfig,
+  type AgentSettings,
+  type ModelName,
+  DEFAULT_CONFIG,
+  readCclConfig,
+  mergeCclConfig,
+  writeCclConfig,
+} from "../utils/ccl-config.js";
+import { syncAgentFrontmatter } from "../utils/sync-agent-frontmatter.js";
+
+// Stack-specific agent overrides (per template defaults).
+// Only applied when the user hasn't explicitly chosen a model.
+const STACK_AGENT_OVERRIDES: Record<string, Record<string, AgentSettings>> = {
+  "spring-boot": { coder: { model: "opus" } },
+};
 
 export interface InitOptions {
   stack?: string;
+  model?: string;
   interactive?: boolean;
 }
 
@@ -20,8 +37,9 @@ export async function initCommand(options: InitOptions): Promise<void> {
   const noInteractive = options.interactive === false;
 
   try {
-    const { stack, mergeBehavior, includeScripts } = await runPrompts({
+    const { stack, model, mergeBehavior, includeScripts } = await runPrompts({
       stack: options.stack,
+      model: options.model,
       existingClaudeDir,
       detectedStack,
       noInteractive,
@@ -61,6 +79,26 @@ export async function initCommand(options: InitOptions): Promise<void> {
 
     // Combine and deduplicate file lists
     const allFiles = [...new Set([...baseFiles, ...stackFiles])];
+
+    // Generate ccl.json and sync agent frontmatter
+    // Only apply stack-specific overrides if user didn't explicitly choose a model
+    const userChoseModel = options.model !== undefined;
+    const cclConfig: CclConfig = {
+      ...DEFAULT_CONFIG,
+      agents: {
+        defaults: { ...DEFAULT_CONFIG.agents.defaults, model },
+        overrides: userChoseModel ? {} : (STACK_AGENT_OVERRIDES[stack] ?? {}),
+      },
+    };
+
+    const existingConfig = readCclConfig(destDir);
+    const finalConfig = existingConfig
+      ? mergeCclConfig(existingConfig, cclConfig)
+      : cclConfig;
+    writeCclConfig(destDir, finalConfig);
+    syncAgentFrontmatter(destDir);
+
+    allFiles.push(".claude/ccl.json");
 
     // Summary
     if (!noInteractive) {

@@ -10,6 +10,14 @@ import { installDjango } from "../../src/installers/django.js";
 import { installNextjs } from "../../src/installers/nextjs.js";
 import { installGeneric } from "../../src/installers/generic.js";
 import type { CopyOptions } from "../../src/utils/copy.js";
+import {
+  readCclConfig,
+  writeCclConfig,
+  DEFAULT_CONFIG,
+  type CclConfig,
+} from "../../src/utils/ccl-config.js";
+import { syncAgentFrontmatter } from "../../src/utils/sync-agent-frontmatter.js";
+import { applyConfigFlags } from "../../src/commands/config.js";
 
 let tmpDir: string;
 
@@ -307,5 +315,219 @@ describe("merge behavior", () => {
     expect(fs.existsSync(path.join(tmpDir, ".claude", "settings.json"))).toBe(
       true,
     );
+  });
+});
+
+describe("init generates ccl.json", () => {
+  it("creates ccl.json with default model", async () => {
+    await installBase(tmpDir, defaultOptions);
+    await installNode(tmpDir, defaultOptions);
+
+    // Simulate what init.ts does after installing
+    writeCclConfig(tmpDir, DEFAULT_CONFIG);
+
+    const config = readCclConfig(tmpDir);
+    expect(config).not.toBeNull();
+    expect(config!.agents.defaults.model).toBe("sonnet");
+    expect(config!.version).toBe(1);
+  });
+
+  it("creates ccl.json with custom model", async () => {
+    await installBase(tmpDir, defaultOptions);
+    await installNode(tmpDir, defaultOptions);
+
+    const customConfig: CclConfig = {
+      ...DEFAULT_CONFIG,
+      agents: {
+        ...DEFAULT_CONFIG.agents,
+        defaults: { ...DEFAULT_CONFIG.agents.defaults, model: "opus" },
+      },
+    };
+    writeCclConfig(tmpDir, customConfig);
+
+    const config = readCclConfig(tmpDir);
+    expect(config!.agents.defaults.model).toBe("opus");
+  });
+
+  it("syncs model to agent frontmatter", async () => {
+    await installBase(tmpDir, defaultOptions);
+    await installNode(tmpDir, defaultOptions);
+
+    const customConfig: CclConfig = {
+      ...DEFAULT_CONFIG,
+      agents: {
+        defaults: {
+          model: "opus",
+          maxTurns: 20,
+          permissionMode: "acceptEdits",
+        },
+        overrides: {},
+      },
+    };
+    writeCclConfig(tmpDir, customConfig);
+    syncAgentFrontmatter(tmpDir);
+
+    const coderMd = fs.readFileSync(
+      path.join(tmpDir, ".claude", "agents", "coder.md"),
+      "utf-8",
+    );
+    expect(coderMd).toContain("model: opus");
+  });
+
+  it("creates spring-boot overrides for coder", async () => {
+    await installBase(tmpDir, defaultOptions);
+    await installSpringBoot(tmpDir, defaultOptions);
+
+    const config: CclConfig = {
+      ...DEFAULT_CONFIG,
+      agents: {
+        defaults: {
+          model: "sonnet",
+          maxTurns: 20,
+          permissionMode: "acceptEdits",
+        },
+        overrides: { coder: { model: "opus" } },
+      },
+    };
+    writeCclConfig(tmpDir, config);
+    syncAgentFrontmatter(tmpDir);
+
+    const read = readCclConfig(tmpDir);
+    expect(read!.agents.overrides.coder).toEqual({ model: "opus" });
+
+    // Coder should have opus, reviewer should have sonnet
+    const coderMd = fs.readFileSync(
+      path.join(tmpDir, ".claude", "agents", "coder.md"),
+      "utf-8",
+    );
+    expect(coderMd).toContain("model: opus");
+
+    const reviewerMd = fs.readFileSync(
+      path.join(tmpDir, ".claude", "agents", "reviewer.md"),
+      "utf-8",
+    );
+    expect(reviewerMd).toContain("model: sonnet");
+  });
+});
+
+describe("config command integration", () => {
+  it("updates model for all agents via applyConfigFlags", async () => {
+    await installBase(tmpDir, defaultOptions);
+    await installNode(tmpDir, defaultOptions);
+    writeCclConfig(tmpDir, DEFAULT_CONFIG);
+
+    const config = readCclConfig(tmpDir)!;
+    const { config: updated } = applyConfigFlags(
+      config,
+      { model: "opus" },
+      tmpDir,
+    );
+    writeCclConfig(tmpDir, updated);
+    syncAgentFrontmatter(tmpDir);
+
+    const coderMd = fs.readFileSync(
+      path.join(tmpDir, ".claude", "agents", "coder.md"),
+      "utf-8",
+    );
+    expect(coderMd).toContain("model: opus");
+
+    const reviewerMd = fs.readFileSync(
+      path.join(tmpDir, ".claude", "agents", "reviewer.md"),
+      "utf-8",
+    );
+    expect(reviewerMd).toContain("model: opus");
+  });
+
+  it("updates model for specific agent only", async () => {
+    await installBase(tmpDir, defaultOptions);
+    await installNode(tmpDir, defaultOptions);
+    writeCclConfig(tmpDir, DEFAULT_CONFIG);
+
+    const config = readCclConfig(tmpDir)!;
+    const { config: updated } = applyConfigFlags(
+      config,
+      {
+        model: "haiku",
+        agent: "reviewer",
+      },
+      tmpDir,
+    );
+    writeCclConfig(tmpDir, updated);
+    syncAgentFrontmatter(tmpDir);
+
+    // Reviewer should have haiku
+    const reviewerMd = fs.readFileSync(
+      path.join(tmpDir, ".claude", "agents", "reviewer.md"),
+      "utf-8",
+    );
+    expect(reviewerMd).toContain("model: haiku");
+
+    // Coder should still have default sonnet
+    const coderMd = fs.readFileSync(
+      path.join(tmpDir, ".claude", "agents", "coder.md"),
+      "utf-8",
+    );
+    expect(coderMd).toContain("model: sonnet");
+  });
+
+  it("reset restores defaults", async () => {
+    await installBase(tmpDir, defaultOptions);
+    await installNode(tmpDir, defaultOptions);
+
+    // Set custom model
+    const customConfig: CclConfig = {
+      ...DEFAULT_CONFIG,
+      agents: {
+        defaults: {
+          model: "opus",
+          maxTurns: 30,
+          permissionMode: "acceptEdits",
+        },
+        overrides: {},
+      },
+    };
+    writeCclConfig(tmpDir, customConfig);
+
+    // Reset
+    writeCclConfig(tmpDir, DEFAULT_CONFIG);
+    syncAgentFrontmatter(tmpDir);
+
+    const config = readCclConfig(tmpDir);
+    expect(config!.agents.defaults.model).toBe("sonnet");
+    expect(config!.agents.defaults.maxTurns).toBe(20);
+  });
+
+  it("preserves user config on re-init", async () => {
+    await installBase(tmpDir, defaultOptions);
+    await installNode(tmpDir, defaultOptions);
+
+    // User sets custom config
+    const customConfig: CclConfig = {
+      ...DEFAULT_CONFIG,
+      agents: {
+        defaults: {
+          model: "opus",
+          maxTurns: 25,
+          permissionMode: "acceptEdits",
+        },
+        overrides: { coder: { maxTurns: 50 } },
+      },
+      loop: { ...DEFAULT_CONFIG.loop, iterations: 5, timeLimit: "30m" },
+    };
+    writeCclConfig(tmpDir, customConfig);
+
+    // Simulate re-init merge (what init.ts does)
+    const { mergeCclConfig } = await import("../../src/utils/ccl-config.js");
+    const existing = readCclConfig(tmpDir)!;
+    const merged = mergeCclConfig(existing, DEFAULT_CONFIG);
+    writeCclConfig(tmpDir, merged);
+
+    const config = readCclConfig(tmpDir);
+    // User values preserved
+    expect(config!.agents.defaults.model).toBe("opus");
+    expect(config!.agents.defaults.maxTurns).toBe(25);
+    expect(config!.agents.overrides.coder).toEqual({ maxTurns: 50 });
+    expect(config!.loop.iterations).toBe(5);
+    expect(config!.loop.timeLimit).toBe("30m");
   });
 });
