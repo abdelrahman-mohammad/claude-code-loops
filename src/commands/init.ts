@@ -23,6 +23,12 @@ const STACK_AGENT_OVERRIDES: Record<string, Record<string, AgentSettings>> = {
   "spring-boot": { coder: { model: "opus" } },
 };
 
+// Base agent overrides — protect planner/debugger maxTurns from sync defaults
+const BASE_AGENT_OVERRIDES: Record<string, AgentSettings> = {
+  planner: { maxTurns: 15 },
+  debugger: { maxTurns: 25 },
+};
+
 export interface InitOptions {
   stack?: string;
   model?: string;
@@ -86,7 +92,10 @@ export async function initCommand(options: InitOptions): Promise<void> {
       ...DEFAULT_CONFIG,
       agents: {
         defaults: { ...DEFAULT_CONFIG.agents.defaults, model },
-        overrides: userChoseModel ? {} : (STACK_AGENT_OVERRIDES[stack] ?? {}),
+        overrides: {
+          ...BASE_AGENT_OVERRIDES,
+          ...(userChoseModel ? {} : (STACK_AGENT_OVERRIDES[stack] ?? {})),
+        },
       },
     };
 
