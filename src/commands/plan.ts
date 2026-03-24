@@ -1,6 +1,7 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import * as p from "@clack/prompts";
 import pc from "picocolors";
 import { detectStack } from "../utils/detect-stack.js";
@@ -75,30 +76,18 @@ export async function planCommand(
     systemPrompt = fs.readFileSync(systemPromptPath, "utf-8");
   }
 
-  const fullPrompt = `${systemPrompt}
+  // Write system prompt + context to a temp file so it never touches shell escaping.
+  const systemPromptWithContext = `${systemPrompt}\n\n## Context\n- Tech stack: ${stack}`;
+  const tmpFile = path.join(os.tmpdir(), `ccl-plan-${Date.now()}.md`);
+  fs.writeFileSync(tmpFile, systemPromptWithContext, "utf-8");
 
-## Context
-- Tech stack: ${stack}
-
-## Requirements
-${requirements}
-
-Generate the task file now.`;
+  const userPrompt = `## Requirements\n${requirements}\n\nGenerate the task file now.`;
 
   const spinner = p.spinner();
   spinner.start("Analyzing requirements with Claude Code...");
 
   try {
-    const output = execFileSync(
-      "claude",
-      ["-p", fullPrompt, "--output-format", "text", "--max-turns", "3"],
-      {
-        encoding: "utf-8",
-        maxBuffer: 1024 * 1024 * 10,
-        timeout: 180_000,
-        shell: true,
-      },
-    );
+    const output = await runClaude(userPrompt, tmpFile);
 
     spinner.stop("Task file generated");
 
@@ -123,5 +112,63 @@ Generate the task file now.`;
     p.log.error("Claude Code CLI failed. Is it installed and authenticated?");
     if (err instanceof Error) p.log.message(pc.dim(err.message));
     process.exit(1);
+  } finally {
+    try {
+      fs.unlinkSync(tmpFile);
+    } catch {
+      // ignore cleanup errors
+    }
   }
+}
+
+function runClaude(
+  userPrompt: string,
+  systemPromptFile: string,
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const args = [
+      "-p",
+      userPrompt,
+      "--append-system-prompt-file",
+      systemPromptFile,
+      "--output-format",
+      "text",
+      "--max-turns",
+      "3",
+    ];
+
+    const child = spawn("claude", args, {
+      stdio: ["ignore", "pipe", "pipe"],
+      shell: true,
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.on("data", (chunk: Buffer) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
+
+    const timer = setTimeout(() => {
+      child.kill();
+      reject(new Error("Claude Code CLI timed out after 3 minutes"));
+    }, 180_000);
+
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      if (code === 0) {
+        resolve(stdout);
+      } else {
+        reject(new Error(stderr || `claude exited with code ${code}`));
+      }
+    });
+
+    child.on("error", (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+  });
 }
