@@ -37,7 +37,7 @@ export async function initCommand(options: InitOptions): Promise<void> {
   const noInteractive = options.interactive === false;
 
   try {
-    const { stack, model, mergeBehavior, includeScripts } = await runPrompts({
+    const { stack, model, mergeBehavior } = await runPrompts({
       stack: options.stack,
       model: options.model,
       existingClaudeDir,
@@ -57,7 +57,6 @@ export async function initCommand(options: InitOptions): Promise<void> {
     const copyOptions = {
       mergeBehavior: mergeBehavior as MergeBehavior,
       templateVars,
-      includeScripts,
     };
 
     // Backup if requested
@@ -111,12 +110,8 @@ export async function initCommand(options: InitOptions): Promise<void> {
         [
           `1. Review ${pc.cyan("CLAUDE.md")} and customize for your project`,
           `2. Try: ${pc.cyan(`claude --agent ${stack === "spring-boot" ? "spring-coder" : "coder"} "Implement feature X"`)}`,
-          includeScripts
-            ? `3. Run the loop: ${pc.cyan("bash scripts/loop.sh task.md --iterations 3")}`
-            : "",
-        ]
-          .filter(Boolean)
-          .join("\n"),
+          `3. Run the loop: ${pc.cyan("bash scripts/loop.sh task.md --iterations 3")}`,
+        ].join("\n"),
         "Next steps",
       );
 

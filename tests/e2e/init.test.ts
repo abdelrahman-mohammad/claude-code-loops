@@ -24,7 +24,6 @@ let tmpDir: string;
 const defaultOptions: CopyOptions = {
   mergeBehavior: "overwrite",
   templateVars: { projectName: "test-project" },
-  includeScripts: true,
 };
 
 beforeEach(() => {
@@ -305,16 +304,6 @@ describe("merge behavior", () => {
     // Base and generic each write one, but generic replaces base's section
     // Actually each copyTemplateDir call creates its own section
     expect(startMarkers).toBeGreaterThanOrEqual(1);
-  });
-
-  it("scripts excluded when includeScripts is false", async () => {
-    await installBase(tmpDir, { ...defaultOptions, includeScripts: false });
-
-    expect(fs.existsSync(path.join(tmpDir, "scripts", "loop.sh"))).toBe(false);
-    // But other base files should still exist
-    expect(fs.existsSync(path.join(tmpDir, ".claude", "settings.json"))).toBe(
-      true,
-    );
   });
 });
 

@@ -29,7 +29,6 @@ export type MergeBehavior = "merge" | "overwrite" | "backup";
 export interface CopyOptions {
   mergeBehavior: MergeBehavior;
   templateVars: Record<string, string>;
-  includeScripts?: boolean;
 }
 
 /**
@@ -78,7 +77,7 @@ export async function copyTemplateDir(
   destDir: string,
   options: CopyOptions,
 ): Promise<string[]> {
-  const { mergeBehavior, templateVars, includeScripts = true } = options;
+  const { mergeBehavior, templateVars } = options;
   const copiedFiles: string[] = [];
 
   if (!fs.existsSync(srcDir)) return copiedFiles;
@@ -88,9 +87,6 @@ export async function copyTemplateDir(
   for (const relFile of relFiles) {
     const srcPath = path.join(srcDir, relFile);
     const fileName = path.basename(relFile);
-
-    // Skip scripts if not requested
-    if (!includeScripts && relFile.startsWith("scripts")) continue;
 
     const destRelFile = relFile;
     const destPath = path.join(destDir, destRelFile);
