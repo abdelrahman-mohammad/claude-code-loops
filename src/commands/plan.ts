@@ -7,19 +7,34 @@ import { detectStack } from "../utils/detect-stack.js";
 import { TEMPLATES_DIR } from "../utils/copy.js";
 import { runClaudeStream } from "../utils/claude-stream.js";
 
-function generateDefaultPlanPath(requirements: string): string {
-  const now = new Date();
-  const date = now
-    .toISOString()
-    .slice(0, 16)
-    .replace("T", "-")
-    .replace(":", "");
-  const slug = requirements
-    .slice(0, 60)
+function generateDefaultPlanPath(planContent: string): string {
+  const date = new Date().toISOString().slice(0, 10);
+  const slug = extractPlanSlug(planContent);
+  return path.join(".claude", "plans", "ccl", `${date}-${slug}.md`);
+}
+
+function extractPlanSlug(content: string): string {
+  // Try to extract feature name from "# Task Plan: [Name]"
+  const match = content.match(/^#\s*Task Plan:\s*(.+)/m);
+  if (match) {
+    return match[1]
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
+      .split("-")
+      .slice(0, 4)
+      .join("-");
+  }
+  // Fallback: first meaningful words from content
+  return content
+    .slice(0, 80)
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-  return path.join(".claude", "plans", "ccl", `${date}-${slug}.md`);
+    .replace(/^-|-$/g, "")
+    .split("-")
+    .slice(0, 4)
+    .join("-");
 }
 
 export interface PlanOptions {
@@ -80,11 +95,6 @@ export async function planCommand(
 
   const stack = options.stack || detectStack(process.cwd());
 
-  // Resolve output path — default to .claude/plans/ccl/<datetime>-<slug>.md
-  const outputPath = options.output ?? generateDefaultPlanPath(requirements);
-  const outputDir = path.dirname(outputPath);
-  fs.mkdirSync(outputDir, { recursive: true });
-
   const plannerAgentPath = path.join(
     process.cwd(),
     ".claude",
@@ -116,6 +126,11 @@ export async function planCommand(
         maxTurns: 15,
       });
     }
+
+    // Resolve output path — use slug from Claude's plan title
+    const outputPath = options.output ?? generateDefaultPlanPath(output);
+    const outputDir = path.dirname(outputPath);
+    fs.mkdirSync(outputDir, { recursive: true });
 
     fs.writeFileSync(outputPath, output.trim() + "\n", "utf-8");
 
