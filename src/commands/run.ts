@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import * as p from "@clack/prompts";
 import pc from "picocolors";
 import { TEMPLATES_DIR } from "../utils/copy.js";
@@ -104,24 +105,22 @@ export async function runCommand(
   p.log.info(`Running loop on ${pc.cyan(path.basename(resolvedTaskFile))}...`);
 
   // Resolve stream-filter script path for loop.sh to use
-  const streamFilterPath = path.resolve(
-    path.dirname(
-      new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/i, "$1"),
-    ),
-    "..",
-    "..",
-    "bin",
-    "stream-filter.js",
-  );
+  // In dev: src/commands/run.ts → ../../bin/stream-filter.js
+  // In built: dist/index.js → ../bin/stream-filter.js
+  // Try both relative paths from the current file
+  const currentDir = path.dirname(fileURLToPath(import.meta.url));
+  const candidates = [
+    path.resolve(currentDir, "..", "bin", "stream-filter.js"),
+    path.resolve(currentDir, "..", "..", "bin", "stream-filter.js"),
+  ];
+  const streamFilterPath = candidates.find((p) => fs.existsSync(p)) ?? "";
 
   const child = spawn("bash", args, {
     stdio: "inherit",
     cwd: process.cwd(),
     env: {
       ...process.env,
-      ...(fs.existsSync(streamFilterPath)
-        ? { CCL_STREAM_FILTER: streamFilterPath }
-        : {}),
+      ...(streamFilterPath ? { CCL_STREAM_FILTER: streamFilterPath } : {}),
     },
   });
 
