@@ -236,6 +236,8 @@ function runClaudeStream(
   });
 }
 
+let lastToolLog = "";
+
 function processStreamEvent(event: Record<string, unknown>): void {
   if (event.type === "assistant" && event.message) {
     const msg = event.message as Record<string, unknown>;
@@ -245,7 +247,12 @@ function processStreamEvent(event: Record<string, unknown>): void {
         if (b.type === "tool_use" && typeof b.name === "string") {
           const input = b.input as Record<string, unknown> | undefined;
           const detail = getToolDetail(b.name, input);
-          p.log.step(pc.dim(`${b.name}${detail ? `: ${detail}` : ""}`));
+          const logLine = `${b.name}${detail ? `: ${detail}` : ""}`;
+          // Skip duplicate consecutive tool logs
+          if (logLine !== lastToolLog) {
+            lastToolLog = logLine;
+            p.log.step(pc.dim(logLine));
+          }
         }
       }
     }
@@ -260,21 +267,37 @@ function getToolDetail(
 
   switch (toolName) {
     case "Read":
-      return typeof input.file_path === "string"
-        ? path.basename(input.file_path)
-        : "";
+      if (typeof input.file_path === "string") {
+        // Show relative path from cwd, or just the last 2 segments
+        const rel = path.relative(process.cwd(), input.file_path);
+        return rel.length < 80 ? rel : path.basename(input.file_path);
+      }
+      return "";
     case "Glob":
       return typeof input.pattern === "string" ? input.pattern : "";
     case "Grep":
       return typeof input.pattern === "string" ? `"${input.pattern}"` : "";
-    case "Bash":
-      return typeof input.command === "string"
-        ? input.command.slice(0, 60)
-        : "";
+    case "Bash": {
+      if (typeof input.command !== "string") return "";
+      // Strip common cd prefix patterns to show the actual command
+      const cmd = input.command
+        .replace(/^cd\s+"[^"]*"\s*&&?\s*/i, "")
+        .replace(/^cd\s+\S+\s*&&?\s*/i, "");
+      return cmd.slice(0, 80);
+    }
     case "Write":
+      if (typeof input.file_path === "string") {
+        const rel = path.relative(process.cwd(), input.file_path);
+        return rel.length < 80 ? rel : path.basename(input.file_path);
+      }
+      return "";
+    case "Edit":
+    case "MultiEdit":
       return typeof input.file_path === "string"
         ? path.basename(input.file_path)
         : "";
+    case "ToolSearch":
+      return typeof input.query === "string" ? input.query : "";
     default:
       return "";
   }
