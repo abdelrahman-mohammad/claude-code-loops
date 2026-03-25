@@ -165,17 +165,37 @@ $TASK_CONTENT"
   log "Coder phase..."
   [ "$MONITOR_ENABLED" = true ] && update_status "$i" "$ITERATIONS" "coder"
   CODER_OUTPUT=""
-  if run_with_retry claude -p "$CODER_PROMPT" \
-    --agent "$CODER_AGENT" \
-    --max-turns "$CODER_TURNS" \
-    --permission-mode "$PERMISSION_MODE" \
-    --output-format json \
-    > "$LOG_DIR/coder-iter-$i.json" 2>&1; then
-    CODER_OUTPUT=$(cat "$LOG_DIR/coder-iter-$i.json")
+  if [ -n "${CCL_STREAM_FILTER:-}" ] && [ -f "$CCL_STREAM_FILTER" ]; then
+    # Stream mode: show tool activity in real-time, capture result text
+    # Filter writes tool activity to stderr (shown in terminal), result text to stdout (captured)
+    if run_with_retry claude -p "$CODER_PROMPT" \
+      --agent "$CODER_AGENT" \
+      --max-turns "$CODER_TURNS" \
+      --permission-mode "$PERMISSION_MODE" \
+      --output-format stream-json --verbose \
+      2>"$LOG_DIR/coder-iter-$i.stderr" \
+      | node "$CCL_STREAM_FILTER" \
+      > "$LOG_DIR/coder-iter-$i.txt"; then
+      CODER_OUTPUT=$(cat "$LOG_DIR/coder-iter-$i.txt")
+    else
+      log_error "Coder failed on iteration $i"
+      STOP_REASON="coder_failure"
+      break
+    fi
   else
-    log_error "Coder failed on iteration $i"
-    STOP_REASON="coder_failure"
-    break
+    # Fallback: no streaming
+    if run_with_retry claude -p "$CODER_PROMPT" \
+      --agent "$CODER_AGENT" \
+      --max-turns "$CODER_TURNS" \
+      --permission-mode "$PERMISSION_MODE" \
+      --output-format json \
+      > "$LOG_DIR/coder-iter-$i.json" 2>&1; then
+      CODER_OUTPUT=$(cat "$LOG_DIR/coder-iter-$i.json")
+    else
+      log_error "Coder failed on iteration $i"
+      STOP_REASON="coder_failure"
+      break
+    fi
   fi
 
   # ── Auto-commit ──────────────────────────────────────────
@@ -205,14 +225,31 @@ $TASK_CONTENT"
   [ "$MONITOR_ENABLED" = true ] && update_status "$i" "$ITERATIONS" "reviewer"
   DIFF=$(git diff HEAD~1 2>/dev/null || git diff)
 
-  REVIEW_OUTPUT=$(echo "$DIFF" | claude -p \
-    "Review these code changes thoroughly. Check for bugs, security issues, type safety, and code quality.
+  REVIEW_PROMPT="Review these code changes thoroughly. Check for bugs, security issues, type safety, and code quality.
+If everything is acceptable, respond with exactly 'LGTM'.
+Otherwise, list all findings with severity, file, line, and description.
+
+--- DIFF ---
+$DIFF"
+
+  if [ -n "${CCL_STREAM_FILTER:-}" ] && [ -f "$CCL_STREAM_FILTER" ]; then
+    REVIEW_OUTPUT=$(claude -p "$REVIEW_PROMPT" \
+      --agent "$REVIEWER_AGENT" \
+      --max-turns "$REVIEWER_TURNS" \
+      --permission-mode "$PERMISSION_MODE" \
+      --output-format stream-json --verbose \
+      2>"$LOG_DIR/review-iter-$i.stderr" \
+      | node "$CCL_STREAM_FILTER" 2>&1) || REVIEW_OUTPUT="Review failed — treating as needs changes"
+  else
+    REVIEW_OUTPUT=$(echo "$DIFF" | claude -p \
+      "Review these code changes thoroughly. Check for bugs, security issues, type safety, and code quality.
 If everything is acceptable, respond with exactly 'LGTM'.
 Otherwise, list all findings with severity, file, line, and description." \
-    --agent "$REVIEWER_AGENT" \
-    --max-turns "$REVIEWER_TURNS" \
-    --permission-mode "$PERMISSION_MODE" \
-    --output-format text 2>/dev/null) || REVIEW_OUTPUT="Review failed — treating as needs changes"
+      --agent "$REVIEWER_AGENT" \
+      --max-turns "$REVIEWER_TURNS" \
+      --permission-mode "$PERMISSION_MODE" \
+      --output-format text 2>/dev/null) || REVIEW_OUTPUT="Review failed — treating as needs changes"
+  fi
 
   echo "$REVIEW_OUTPUT" > "$LOG_DIR/review-iter-$i.txt"
 

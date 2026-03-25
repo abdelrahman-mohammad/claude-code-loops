@@ -1,7 +1,10 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: ["src/index.ts"],
+  entry: {
+    index: "src/index.ts",
+    "utils/claude-stream": "src/utils/claude-stream.ts",
+  },
   format: ["esm"],
   target: "node18",
   clean: true,
