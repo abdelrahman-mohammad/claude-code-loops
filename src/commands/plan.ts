@@ -7,35 +7,7 @@ import { detectStack } from "../utils/detect-stack.js";
 import { TEMPLATES_DIR } from "../utils/copy.js";
 import { runClaudeStream } from "../utils/claude-stream.js";
 
-function generateDefaultPlanPath(planContent: string): string {
-  const date = new Date().toISOString().slice(0, 10);
-  const slug = extractPlanSlug(planContent);
-  return path.join(".claude", "plans", "ccl", `${date}-${slug}.md`);
-}
-
-function extractPlanSlug(content: string): string {
-  // Try to extract feature name from "# Task Plan: [Name]"
-  const match = content.match(/^#\s*Task Plan:\s*(.+)/m);
-  if (match) {
-    return match[1]
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "")
-      .split("-")
-      .slice(0, 4)
-      .join("-");
-  }
-  // Fallback: first meaningful words from content
-  return content
-    .slice(0, 80)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .split("-")
-    .slice(0, 4)
-    .join("-");
-}
+const PLANS_DIR = path.join(".claude", "plans", "ccl");
 
 export interface PlanOptions {
   output?: string;
@@ -94,6 +66,7 @@ export async function planCommand(
   }
 
   const stack = options.stack || detectStack(process.cwd());
+  const today = new Date().toISOString().slice(0, 10);
 
   const plannerAgentPath = path.join(
     process.cwd(),
@@ -103,14 +76,36 @@ export async function planCommand(
   );
   const usesAgent = fs.existsSync(plannerAgentPath);
 
-  const userPrompt = `## Context\n- Tech stack: ${stack}\n\n## Requirements\n${requirements}\n\nGenerate the task file now.`;
+  // Ensure plans directory exists
+  const plansDir = path.resolve(process.cwd(), PLANS_DIR);
+  fs.mkdirSync(plansDir, { recursive: true });
+
+  // Snapshot existing plan files so we can detect what was created
+  const existingFiles = new Set(fs.readdirSync(plansDir));
+
+  const userPrompt = [
+    `## Context`,
+    `- Tech stack: ${stack}`,
+    `- Today's date: ${today}`,
+    ``,
+    `## Requirements`,
+    requirements,
+    ``,
+    `## Output Instructions`,
+    `Write the plan to a file at: ${PLANS_DIR}/${today}-<slug>.md`,
+    `where <slug> is a kebab-case name of up to 4 words describing the feature.`,
+    `Example: ${PLANS_DIR}/${today}-digest-parser-multi-format.md`,
+    ``,
+    `The plan file must include the full date and time in the "Generated" field.`,
+    ``,
+    `Generate the task plan now.`,
+  ].join("\n");
 
   p.log.step("Starting Claude Code...");
 
   try {
-    let output: string;
     if (usesAgent) {
-      output = await runClaudeStream(userPrompt, { agent: "planner" });
+      await runClaudeStream(userPrompt, { agent: "planner" });
     } else {
       const bundledPath = path.join(
         TEMPLATES_DIR,
@@ -121,24 +116,40 @@ export async function planCommand(
       );
       const bundledContent = fs.readFileSync(bundledPath, "utf-8");
       const body = bundledContent.replace(/^---[\s\S]*?---\n?/, "");
-      output = await runClaudeStream(userPrompt, {
+      await runClaudeStream(userPrompt, {
         systemPrompt: body,
         maxTurns: 15,
       });
     }
 
-    // Resolve output path — use slug from Claude's plan title
-    const outputPath = options.output ?? generateDefaultPlanPath(output);
-    const outputDir = path.dirname(outputPath);
-    fs.mkdirSync(outputDir, { recursive: true });
+    // Find the plan file the agent created
+    const currentFiles = fs.readdirSync(plansDir);
+    const newFiles = currentFiles.filter((f) => !existingFiles.has(f));
 
-    fs.writeFileSync(outputPath, output.trim() + "\n", "utf-8");
+    if (newFiles.length === 0) {
+      p.log.error("Planner did not create a plan file.");
+      process.exit(1);
+    }
 
-    const taskCount = (output.match(/- \[ \]/g) || []).length;
-    p.log.success(`Written to ${pc.cyan(outputPath)} (${taskCount} tasks)`);
+    const planFile = path.join(PLANS_DIR, newFiles[0]);
+    const planContent = fs.readFileSync(
+      path.resolve(process.cwd(), planFile),
+      "utf-8",
+    );
+
+    // If user specified --output, copy the file there
+    if (options.output) {
+      fs.mkdirSync(path.dirname(options.output), { recursive: true });
+      fs.writeFileSync(options.output, planContent, "utf-8");
+      planFile === options.output ||
+        p.log.info(`Also saved to ${pc.cyan(options.output)}`);
+    }
+
+    const taskCount = (planContent.match(/- \[ \]/g) || []).length;
+    p.log.success(`Written to ${pc.cyan(planFile)} (${taskCount} tasks)`);
 
     p.outro(
-      `Next: ${pc.cyan(`claude-code-loops run ${outputPath} --iterations 5`)}`,
+      `Next: ${pc.cyan(`claude-code-loops run ${planFile} --iterations 5`)}`,
     );
   } catch (err) {
     p.log.error("Claude Code CLI failed. Is it installed and authenticated?");
