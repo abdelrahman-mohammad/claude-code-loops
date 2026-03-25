@@ -1,11 +1,11 @@
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
-import { execFileSync, spawn } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import * as p from "@clack/prompts";
 import pc from "picocolors";
 import { detectStack } from "../utils/detect-stack.js";
 import { TEMPLATES_DIR } from "../utils/copy.js";
+import { runClaudeStream } from "../utils/claude-stream.js";
 
 export interface PlanOptions {
   output: string;
@@ -91,21 +91,16 @@ export async function planCommand(
       );
       const bundledContent = fs.readFileSync(bundledPath, "utf-8");
       const body = bundledContent.replace(/^---[\s\S]*?---\n?/, "");
-      output = await runClaudeStream(userPrompt, { systemPrompt: body });
+      output = await runClaudeStream(userPrompt, {
+        systemPrompt: body,
+        maxTurns: 15,
+      });
     }
 
     fs.writeFileSync(options.output, output.trim() + "\n", "utf-8");
-    p.log.success(`Written to ${pc.cyan(options.output)}`);
 
     const taskCount = (output.match(/- \[ \]/g) || []).length;
-    const lines = output.trim().split("\n");
-    const preview = lines.slice(0, 15).join("\n");
-
-    p.note(
-      preview +
-        (lines.length > 15 ? `\n... (${lines.length - 15} more lines)` : ""),
-      `${taskCount} tasks generated`,
-    );
+    p.log.success(`Written to ${pc.cyan(options.output)} (${taskCount} tasks)`);
 
     p.outro(
       `Next: ${pc.cyan(`claude-code-loops run ${options.output} --iterations 5`)}`,
@@ -114,191 +109,5 @@ export async function planCommand(
     p.log.error("Claude Code CLI failed. Is it installed and authenticated?");
     if (err instanceof Error) p.log.message(pc.dim(err.message));
     process.exit(1);
-  }
-}
-
-interface StreamOptions {
-  agent?: string;
-  systemPrompt?: string;
-}
-
-function runClaudeStream(
-  userPrompt: string,
-  options: StreamOptions,
-): Promise<string> {
-  return new Promise((resolve, reject) => {
-    // Write prompt to temp file to avoid shell escaping issues on Windows
-    const promptFile = path.join(os.tmpdir(), `ccl-prompt-${Date.now()}.txt`);
-
-    if (options.systemPrompt) {
-      fs.writeFileSync(
-        promptFile,
-        options.systemPrompt + "\n\n" + userPrompt,
-        "utf-8",
-      );
-    } else {
-      fs.writeFileSync(promptFile, userPrompt, "utf-8");
-    }
-
-    const cleanup = () => {
-      try {
-        fs.unlinkSync(promptFile);
-      } catch {}
-    };
-
-    const args = [
-      ...(options.agent ? ["--agent", options.agent] : []),
-      "-p",
-      "Execute the plan request in the attached file.",
-      "--append-system-prompt-file",
-      promptFile,
-      "--output-format",
-      "stream-json",
-      "--verbose",
-      ...(options.agent ? [] : ["--max-turns", "3"]),
-    ];
-
-    const child = spawn("claude", args, {
-      stdio: ["ignore", "pipe", "pipe"],
-      shell: true,
-    });
-
-    let resultText = "";
-    let buffer = "";
-
-    child.stdout.on("data", (chunk: Buffer) => {
-      buffer += chunk.toString();
-
-      // Process complete JSON lines
-      const lines = buffer.split("\n");
-      buffer = lines.pop() ?? "";
-
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed) continue;
-
-        try {
-          const event = JSON.parse(trimmed) as Record<string, unknown>;
-          processStreamEvent(event);
-
-          // Collect assistant text for the final output
-          if (event.type === "assistant" && event.message) {
-            const msg = event.message as Record<string, unknown>;
-            if (msg.content && Array.isArray(msg.content)) {
-              for (const block of msg.content) {
-                const b = block as Record<string, unknown>;
-                if (b.type === "text" && typeof b.text === "string") {
-                  resultText = b.text;
-                }
-              }
-            }
-          }
-
-          // Also check for result type
-          if (event.type === "result" && event.result) {
-            const result = event.result as string;
-            if (result) resultText = result;
-          }
-        } catch {
-          // Not valid JSON, skip
-        }
-      }
-    });
-
-    let stderr = "";
-    child.stderr.on("data", (chunk: Buffer) => {
-      stderr += chunk.toString();
-    });
-
-    const timer = setTimeout(() => {
-      child.kill();
-      cleanup();
-      reject(new Error("Claude Code CLI timed out after 10 minutes"));
-    }, 600_000);
-
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      cleanup();
-      if (code === 0 && resultText) {
-        resolve(resultText);
-      } else if (code === 0) {
-        reject(new Error("Claude returned no output"));
-      } else {
-        reject(new Error(stderr || `claude exited with code ${code}`));
-      }
-    });
-
-    child.on("error", (err) => {
-      clearTimeout(timer);
-      cleanup();
-      reject(err);
-    });
-  });
-}
-
-let lastToolLog = "";
-
-function processStreamEvent(event: Record<string, unknown>): void {
-  if (event.type === "assistant" && event.message) {
-    const msg = event.message as Record<string, unknown>;
-    if (msg.content && Array.isArray(msg.content)) {
-      for (const block of msg.content) {
-        const b = block as Record<string, unknown>;
-        if (b.type === "tool_use" && typeof b.name === "string") {
-          const input = b.input as Record<string, unknown> | undefined;
-          const detail = getToolDetail(b.name, input);
-          const logLine = `${b.name}${detail ? `: ${detail}` : ""}`;
-          // Skip duplicate consecutive tool logs
-          if (logLine !== lastToolLog) {
-            lastToolLog = logLine;
-            p.log.step(pc.dim(logLine));
-          }
-        }
-      }
-    }
-  }
-}
-
-function getToolDetail(
-  toolName: string,
-  input: Record<string, unknown> | undefined,
-): string {
-  if (!input) return "";
-
-  switch (toolName) {
-    case "Read":
-      if (typeof input.file_path === "string") {
-        // Show relative path from cwd, or just the last 2 segments
-        const rel = path.relative(process.cwd(), input.file_path);
-        return rel.length < 80 ? rel : path.basename(input.file_path);
-      }
-      return "";
-    case "Glob":
-      return typeof input.pattern === "string" ? input.pattern : "";
-    case "Grep":
-      return typeof input.pattern === "string" ? `"${input.pattern}"` : "";
-    case "Bash": {
-      if (typeof input.command !== "string") return "";
-      // Strip common cd prefix patterns to show the actual command
-      const cmd = input.command
-        .replace(/^cd\s+"[^"]*"\s*&&?\s*/i, "")
-        .replace(/^cd\s+\S+\s*&&?\s*/i, "");
-      return cmd.slice(0, 80);
-    }
-    case "Write":
-      if (typeof input.file_path === "string") {
-        const rel = path.relative(process.cwd(), input.file_path);
-        return rel.length < 80 ? rel : path.basename(input.file_path);
-      }
-      return "";
-    case "Edit":
-    case "MultiEdit":
-      return typeof input.file_path === "string"
-        ? path.basename(input.file_path)
-        : "";
-    case "ToolSearch":
-      return typeof input.query === "string" ? input.query : "";
-    default:
-      return "";
   }
 }

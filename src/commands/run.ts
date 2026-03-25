@@ -103,10 +103,26 @@ export async function runCommand(
 
   p.log.info(`Running loop on ${pc.cyan(path.basename(resolvedTaskFile))}...`);
 
+  // Resolve stream-filter script path for loop.sh to use
+  const streamFilterPath = path.resolve(
+    path.dirname(
+      new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/i, "$1"),
+    ),
+    "..",
+    "..",
+    "bin",
+    "stream-filter.js",
+  );
+
   const child = spawn("bash", args, {
     stdio: "inherit",
     cwd: process.cwd(),
-    env: { ...process.env },
+    env: {
+      ...process.env,
+      ...(fs.existsSync(streamFilterPath)
+        ? { CCL_STREAM_FILTER: streamFilterPath }
+        : {}),
+    },
   });
 
   // Forward signals
