@@ -32,7 +32,7 @@ program
   .command("plan")
   .description("Generate a structured task file from requirements")
   .argument("[input]", "Requirements file path (markdown, txt)")
-  .option("-o, --output <file>", "Output task file path", "task.md")
+  .option("-o, --output <file>", "Output task file path")
   .option("--prompt <text>", "Inline requirement description")
   .option("--github-issue <number>", "GitHub issue number to import")
   .option("--stack <stack>", "Stack context for better decomposition")

@@ -7,8 +7,15 @@ import { detectStack } from "../utils/detect-stack.js";
 import { TEMPLATES_DIR } from "../utils/copy.js";
 import { runClaudeStream } from "../utils/claude-stream.js";
 
+function generateDefaultPlanPath(): string {
+  const now = new Date();
+  const date = now.toISOString().slice(0, 10);
+  const time = now.toISOString().slice(11, 16).replace(":", "");
+  return path.join(".claude", "plans", "ccl", `${date}-${time}-plan.md`);
+}
+
 export interface PlanOptions {
-  output: string;
+  output?: string;
   prompt?: string;
   githubIssue?: string;
   stack?: string;
@@ -65,6 +72,11 @@ export async function planCommand(
 
   const stack = options.stack || detectStack(process.cwd());
 
+  // Resolve output path — default to .claude/plans/ccl/<timestamp>-plan.md
+  const outputPath = options.output ?? generateDefaultPlanPath();
+  const outputDir = path.dirname(outputPath);
+  fs.mkdirSync(outputDir, { recursive: true });
+
   const plannerAgentPath = path.join(
     process.cwd(),
     ".claude",
@@ -97,13 +109,13 @@ export async function planCommand(
       });
     }
 
-    fs.writeFileSync(options.output, output.trim() + "\n", "utf-8");
+    fs.writeFileSync(outputPath, output.trim() + "\n", "utf-8");
 
     const taskCount = (output.match(/- \[ \]/g) || []).length;
-    p.log.success(`Written to ${pc.cyan(options.output)} (${taskCount} tasks)`);
+    p.log.success(`Written to ${pc.cyan(outputPath)} (${taskCount} tasks)`);
 
     p.outro(
-      `Next: ${pc.cyan(`claude-code-loops run ${options.output} --iterations 5`)}`,
+      `Next: ${pc.cyan(`claude-code-loops run ${outputPath} --iterations 5`)}`,
     );
   } catch (err) {
     p.log.error("Claude Code CLI failed. Is it installed and authenticated?");

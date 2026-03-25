@@ -76,7 +76,9 @@ Use this exact markdown structure:
 
 ## Important
 
+- **Output the plan as text directly** — do NOT write it to a file. Print the entire plan to stdout so the calling tool can capture it.
 - Use `- [ ]` checkbox syntax for every step
 - Include file paths relative to the project root
 - Keep task descriptions actionable and specific
 - Each task should produce a working, committable state
+- Do NOT create directories or files for the plan output
