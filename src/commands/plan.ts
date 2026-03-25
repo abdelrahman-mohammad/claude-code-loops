@@ -7,11 +7,19 @@ import { detectStack } from "../utils/detect-stack.js";
 import { TEMPLATES_DIR } from "../utils/copy.js";
 import { runClaudeStream } from "../utils/claude-stream.js";
 
-function generateDefaultPlanPath(): string {
+function generateDefaultPlanPath(requirements: string): string {
   const now = new Date();
-  const date = now.toISOString().slice(0, 10);
-  const time = now.toISOString().slice(11, 16).replace(":", "");
-  return path.join(".claude", "plans", "ccl", `${date}-${time}-plan.md`);
+  const date = now
+    .toISOString()
+    .slice(0, 16)
+    .replace("T", "-")
+    .replace(":", "");
+  const slug = requirements
+    .slice(0, 60)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  return path.join(".claude", "plans", "ccl", `${date}-${slug}.md`);
 }
 
 export interface PlanOptions {
@@ -72,8 +80,8 @@ export async function planCommand(
 
   const stack = options.stack || detectStack(process.cwd());
 
-  // Resolve output path — default to .claude/plans/ccl/<timestamp>-plan.md
-  const outputPath = options.output ?? generateDefaultPlanPath();
+  // Resolve output path — default to .claude/plans/ccl/<datetime>-<slug>.md
+  const outputPath = options.output ?? generateDefaultPlanPath(requirements);
   const outputDir = path.dirname(outputPath);
   fs.mkdirSync(outputDir, { recursive: true });
 

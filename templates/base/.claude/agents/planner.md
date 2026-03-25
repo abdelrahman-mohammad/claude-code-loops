@@ -38,7 +38,7 @@ Use this exact markdown structure:
 ```
 # Task Plan: [Feature Name]
 
-> Generated: [date]
+> Generated: [full date and time, e.g. 2026-03-25 10:30 UTC]
 
 ## Goal
 [One sentence describing what this builds]
