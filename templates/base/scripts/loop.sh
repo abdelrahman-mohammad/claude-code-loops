@@ -167,6 +167,7 @@ $TASK_CONTENT"
   CODER_OUTPUT=""
   if [ -n "${CCL_STREAM_FILTER:-}" ] && [ -f "$CCL_STREAM_FILTER" ]; then
     # Stream mode: show tool activity in real-time, capture result text
+    # Filter writes tool activity to stderr (shown in terminal), result text to stdout (captured)
     if run_with_retry claude -p "$CODER_PROMPT" \
       --agent "$CODER_AGENT" \
       --max-turns "$CODER_TURNS" \
@@ -174,7 +175,7 @@ $TASK_CONTENT"
       --output-format stream-json --verbose \
       2>"$LOG_DIR/coder-iter-$i.stderr" \
       | node "$CCL_STREAM_FILTER" \
-      > "$LOG_DIR/coder-iter-$i.txt" 2>&1; then
+      > "$LOG_DIR/coder-iter-$i.txt"; then
       CODER_OUTPUT=$(cat "$LOG_DIR/coder-iter-$i.txt")
     else
       log_error "Coder failed on iteration $i"
