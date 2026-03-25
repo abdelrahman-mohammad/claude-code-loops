@@ -11,6 +11,7 @@ export interface ClaudeStreamOptions {
   maxTurns?: number;
   timeoutMs?: number;
   permissionMode?: string;
+  cwd?: string;
 }
 
 export interface StreamCallbacks {
@@ -70,6 +71,7 @@ export function runClaudeStream(
     const child = spawn("claude", args, {
       stdio: ["ignore", "pipe", "pipe"],
       shell: true,
+      cwd: options.cwd ?? process.cwd(),
     });
 
     let resultText = "";

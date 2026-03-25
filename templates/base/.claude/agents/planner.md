@@ -6,7 +6,6 @@ tools:
   - Glob
   - Grep
   - Bash
-  - Write
 model: sonnet
 maxTurns: 15
 ---
@@ -34,7 +33,7 @@ You are a technical project planner. Your job is to decompose a requirement into
 
 ## Output
 
-Write the plan to the file path specified in the prompt. The prompt will tell you exactly where to save it and how to name it. Use the Write tool to create the file.
+Output the entire plan as text. Do NOT write it to a file — print the plan content directly so it can be captured by the calling tool.
 
 ## Plan Format
 
