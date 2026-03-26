@@ -194,11 +194,24 @@ export async function runCommand(
     },
   });
 
+  // Extract cleanup function for temp file removal
+  const cleanupTempFile = (): void => {
+    if (isTempFile && resolvedTaskFile) {
+      try {
+        fs.unlinkSync(resolvedTaskFile);
+      } catch {
+        // ignore
+      }
+    }
+  };
+
   // Forward signals — store references so we can remove just these handlers
   const onSigInt = (): void => {
+    cleanupTempFile();
     if (!child.killed) child.kill("SIGINT");
   };
   const onSigTerm = (): void => {
+    cleanupTempFile();
     if (!child.killed) child.kill("SIGTERM");
   };
   process.on("SIGINT", onSigInt);
@@ -208,14 +221,7 @@ export async function runCommand(
     process.removeListener("SIGINT", onSigInt);
     process.removeListener("SIGTERM", onSigTerm);
 
-    // Clean up temp file
-    if (isTempFile && resolvedTaskFile) {
-      try {
-        fs.unlinkSync(resolvedTaskFile);
-      } catch {
-        // ignore
-      }
-    }
+    cleanupTempFile();
 
     if (signal) {
       process.kill(process.pid, signal);

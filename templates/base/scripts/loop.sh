@@ -154,6 +154,24 @@ if [ "$ENABLE_MONITOR" = true ]; then
   start_monitor "$LOG_DIR/loop.log" || true
 fi
 
+# ── Signal handling ────────────────────────────────────────
+cleanup_and_exit() {
+  local signal="$1"
+  log ""
+  log "Loop interrupted by $signal at iteration ${i:-0}"
+  STOP_REASON="interrupted"
+
+  # Generate partial report if possible
+  if [ "$ENABLE_REPORT" = true ] && [ -n "${LAST_ITERATION:-}" ]; then
+    generate_report "$LAST_ITERATION" "interrupted" 2>/dev/null || true
+  fi
+
+  exit 130
+}
+
+trap 'cleanup_and_exit INT' INT
+trap 'cleanup_and_exit TERM' TERM
+
 for i in $(seq 1 "$ITERATIONS"); do
   LAST_ITERATION=$i
   log "=== ITERATION $i/$ITERATIONS ==="
