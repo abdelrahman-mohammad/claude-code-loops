@@ -98,6 +98,13 @@ program
     await statusCommand(options);
   });
 
+program
+  .command("doctor")
+  .description("Verify your setup is correct and diagnose issues")
+  .action(async () => {
+    await doctorCommand();
+  });
+
 const agentCmd = program.command("agent").description("Manage agents");
 
 agentCmd
