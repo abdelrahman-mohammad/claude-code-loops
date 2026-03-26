@@ -71,9 +71,10 @@ function formatConfigLines(status: StatusData): string[] {
     for (const name of overrideNames) {
       const o = config.agents.overrides[name];
       const parts: string[] = [];
-      if (o.model) parts.push(`model=${o.model}`);
-      if (o.maxTurns) parts.push(`maxTurns=${o.maxTurns}`);
-      if (o.permissionMode) parts.push(`permission=${o.permissionMode}`);
+      if (o.model !== undefined) parts.push(`model=${o.model}`);
+      if (o.maxTurns !== undefined) parts.push(`maxTurns=${o.maxTurns}`);
+      if (o.permissionMode !== undefined)
+        parts.push(`permission=${o.permissionMode}`);
       lines.push(`  ${name}:`.padEnd(16) + parts.join(", "));
     }
   }

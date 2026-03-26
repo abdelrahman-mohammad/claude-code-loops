@@ -176,16 +176,19 @@ export async function runCommand(
     },
   });
 
-  // Forward signals
-  const forwardSignal = (signal: NodeJS.Signals) => {
-    if (!child.killed) child.kill(signal);
+  // Forward signals — store references so we can remove just these handlers
+  const onSigInt = (): void => {
+    if (!child.killed) child.kill("SIGINT");
   };
-  process.on("SIGINT", () => forwardSignal("SIGINT"));
-  process.on("SIGTERM", () => forwardSignal("SIGTERM"));
+  const onSigTerm = (): void => {
+    if (!child.killed) child.kill("SIGTERM");
+  };
+  process.on("SIGINT", onSigInt);
+  process.on("SIGTERM", onSigTerm);
 
   child.on("close", (code, signal) => {
-    process.removeAllListeners("SIGINT");
-    process.removeAllListeners("SIGTERM");
+    process.removeListener("SIGINT", onSigInt);
+    process.removeListener("SIGTERM", onSigTerm);
 
     // Clean up temp file
     if (isTempFile && resolvedTaskFile) {

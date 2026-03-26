@@ -56,6 +56,13 @@ export function parseFullFrontmatter(content: string): Record<string, unknown> {
       continue;
     }
 
+    // Handle inline YAML arrays like [Bash, Read]
+    const inlineArrayMatch = value.match(/^\[(.+)\]$/);
+    if (inlineArrayMatch) {
+      result[key] = inlineArrayMatch[1].split(",").map((s) => s.trim());
+      continue;
+    }
+
     const unquoted = value.replace(/^["']|["']$/g, "");
 
     if (/^\d+$/.test(unquoted)) {
@@ -80,21 +87,29 @@ function buildAgentInfo(
 ): AgentInfo {
   const content = fs.readFileSync(path.join(agentsDir, file), "utf-8");
   const fm = parseFullFrontmatter(content);
-  const agentName = (fm.name as string) ?? path.basename(file, ".md");
+  const fmName = typeof fm.name === "string" ? fm.name : undefined;
+  const fmModel = typeof fm.model === "string" ? fm.model : undefined;
+  const fmMaxTurns = typeof fm.maxTurns === "number" ? fm.maxTurns : null;
+  const fmDescription =
+    typeof fm.description === "string" ? fm.description : "";
+  const fmPermissionMode =
+    typeof fm.permissionMode === "string" ? fm.permissionMode : "";
+  const fmTools = Array.isArray(fm.tools) ? (fm.tools as string[]) : [];
+  const agentName = fmName ?? path.basename(file, ".md");
 
   const overrides: Record<string, string | number> = {};
   let hasOverride = false;
   if (config?.agents.overrides[agentName]) {
     const o = config.agents.overrides[agentName];
-    if (o.model) {
+    if (o.model !== undefined) {
       overrides.model = o.model;
       hasOverride = true;
     }
-    if (o.maxTurns) {
+    if (o.maxTurns !== undefined) {
       overrides.maxTurns = o.maxTurns;
       hasOverride = true;
     }
-    if (o.permissionMode) {
+    if (o.permissionMode !== undefined) {
       overrides.permissionMode = o.permissionMode;
       hasOverride = true;
     }
@@ -105,12 +120,11 @@ function buildAgentInfo(
   return {
     fileName: file,
     name: agentName,
-    description: (fm.description as string) ?? "",
-    model: resolved?.model ?? (fm.model as string) ?? "sonnet",
-    maxTurns: resolved?.maxTurns ?? (fm.maxTurns as number) ?? null,
-    permissionMode:
-      resolved?.permissionMode ?? (fm.permissionMode as string) ?? "",
-    tools: (fm.tools as string[]) ?? [],
+    description: fmDescription,
+    model: resolved?.model ?? fmModel ?? "sonnet",
+    maxTurns: resolved?.maxTurns ?? fmMaxTurns,
+    permissionMode: resolved?.permissionMode ?? fmPermissionMode,
+    tools: fmTools,
     hasOverride,
     overrides,
   };

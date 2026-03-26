@@ -97,24 +97,30 @@ export function checkClaudeDir(destDir: string): CheckResult {
 
 /** Check whether ccl.json exists and is valid. */
 export function checkCclConfig(destDir: string): CheckResult {
-  const config = readCclConfig(destDir);
-  if (config) {
-    return { name: "ccl.json", status: "pass", message: "Valid" };
-  }
   const configPath = path.join(destDir, ".claude", "ccl.json");
-  if (fs.existsSync(configPath)) {
+  if (!fs.existsSync(configPath)) {
     return {
       name: "ccl.json",
-      status: "fail",
-      message: "Invalid or malformed",
-      fix: "Run `ccl config --reset` to regenerate",
+      status: "warn",
+      message: "Not found -- using defaults",
+      fix: "Run `ccl init` or `ccl config` to create",
     };
   }
+
+  try {
+    const config = readCclConfig(destDir);
+    if (config) {
+      return { name: "ccl.json", status: "pass", message: "Valid" };
+    }
+  } catch {
+    // JSON.parse failed — fall through to fail result
+  }
+
   return {
     name: "ccl.json",
-    status: "warn",
-    message: "Not found -- using defaults",
-    fix: "Run `ccl init` or `ccl config` to create",
+    status: "fail",
+    message: "Invalid or malformed",
+    fix: "Run `ccl config --reset` to regenerate",
   };
 }
 
@@ -269,6 +275,10 @@ function statusIcon(status: CheckResult["status"]): string {
       return pc.yellow("WARN");
     case "fail":
       return pc.red("FAIL");
+    default: {
+      const _exhaustive: never = status;
+      return _exhaustive;
+    }
   }
 }
 

@@ -8,12 +8,28 @@ export interface HistoryOptions {
   json?: boolean;
 }
 
+export type ReviewVerdict = "pass" | "issues" | "fail" | "unknown";
+
 export interface IterationLog {
   iteration: number;
   cost: number | null;
   turns: number | null;
-  reviewVerdict: string;
+  reviewVerdict: ReviewVerdict;
   issueCount: number;
+}
+
+export interface ReviewResult {
+  verdict: ReviewVerdict;
+  issueCount: number;
+}
+
+export interface LoopLogMeta {
+  date: string | null;
+  taskFile: string | null;
+  maxIterations: number | null;
+  stopReason: string | null;
+  totalCost: number | null;
+  duration: string | null;
 }
 
 export interface RunSummary {
@@ -44,10 +60,7 @@ export function parseCoderJson(content: string): {
 }
 
 /** Parse a review-iter-N.txt file for verdict and issue count. */
-export function parseReviewTxt(content: string): {
-  verdict: string;
-  issueCount: number;
-} {
+export function parseReviewTxt(content: string): ReviewResult {
   const upper = content.toUpperCase();
   if (upper.includes("LGTM") || upper.includes("PASS")) {
     return { verdict: "pass", issueCount: 0 };
@@ -75,14 +88,7 @@ export function parseReviewTxt(content: string): {
 }
 
 /** Parse loop.log for run metadata. */
-export function parseLoopLog(content: string): {
-  date: string | null;
-  taskFile: string | null;
-  maxIterations: number | null;
-  stopReason: string | null;
-  totalCost: number | null;
-  duration: string | null;
-} {
+export function parseLoopLog(content: string): LoopLogMeta {
   // Look for timestamp at start of log lines like "[2026-03-25 14:30:22]"
   const dateMatch = content.match(
     /\[(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\]/,
@@ -138,7 +144,7 @@ export function scanLogDirectory(logDir: string): IterationLog[] {
 
     // Parse review txt if exists
     const reviewFile = `review-iter-${iterNum}.txt`;
-    let reviewVerdict = "unknown";
+    let reviewVerdict: ReviewVerdict = "unknown";
     let issueCount = 0;
     if (files.includes(reviewFile)) {
       const reviewContent = fs.readFileSync(
@@ -203,8 +209,12 @@ function formatVerdict(iter: IterationLog): string {
       );
     case "fail":
       return pc.red("FAILED");
-    default:
+    case "unknown":
       return pc.dim("no review");
+    default: {
+      const _exhaustive: never = iter.reviewVerdict;
+      return String(_exhaustive);
+    }
   }
 }
 
@@ -218,13 +228,13 @@ export async function historyCommand(options: HistoryOptions): Promise<void> {
 
   // Parse loop.log for metadata
   const loopLogPath = path.join(logDir, "loop.log");
-  let logMeta = {
-    date: null as string | null,
-    taskFile: null as string | null,
-    maxIterations: null as number | null,
-    stopReason: null as string | null,
-    totalCost: null as number | null,
-    duration: null as string | null,
+  let logMeta: LoopLogMeta = {
+    date: null,
+    taskFile: null,
+    maxIterations: null,
+    stopReason: null,
+    totalCost: null,
+    duration: null,
   };
   if (fs.existsSync(loopLogPath)) {
     const logContent = fs.readFileSync(loopLogPath, "utf-8");
