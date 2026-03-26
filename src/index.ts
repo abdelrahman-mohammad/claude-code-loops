@@ -5,6 +5,8 @@ import { planCommand } from "./commands/plan.js";
 import { runCommand } from "./commands/run.js";
 import { configCommand } from "./commands/config.js";
 import { statusCommand } from "./commands/status.js";
+import { doctorCommand } from "./commands/doctor.js";
+import { agentListCommand } from "./commands/agent.js";
 
 const require = createRequire(import.meta.url);
 const pkg = require("../package.json");
@@ -94,6 +96,16 @@ program
   .option("--json", "Output as JSON")
   .action(async (options) => {
     await statusCommand(options);
+  });
+
+const agentCmd = program.command("agent").description("Manage agents");
+
+agentCmd
+  .command("list")
+  .description("List all agents and their configuration")
+  .option("--json", "Output as JSON")
+  .action(async (options) => {
+    await agentListCommand(options);
   });
 
 program.parse();
