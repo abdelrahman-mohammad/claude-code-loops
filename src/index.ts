@@ -119,9 +119,10 @@ program
 
 program
   .command("history")
-  .description("Show data from the latest loop run")
+  .description("Show loop run history")
   .option("--detail", "Show per-iteration breakdown")
   .option("--json", "Output as JSON")
+  .option("--last <n>", "Limit to last N runs", parseInt)
   .action(async (options) => {
     await historyCommand(options);
   });
