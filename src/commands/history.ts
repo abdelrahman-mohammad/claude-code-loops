@@ -6,6 +6,7 @@ import pc from "picocolors";
 export interface HistoryOptions {
   detail?: boolean;
   json?: boolean;
+  last?: number;
 }
 
 export type ReviewVerdict = "pass" | "issues" | "fail" | "unknown";
@@ -33,6 +34,7 @@ export interface LoopLogMeta {
 }
 
 export interface RunSummary {
+  runId: string | null;
   date: string | null;
   taskFile: string | null;
   iterationsCompleted: number;
@@ -43,20 +45,68 @@ export interface RunSummary {
   iterations: IterationLog[];
 }
 
-/** Parse a coder-iter-N.json file for cost and turns. */
+/**
+ * Parse a coder-iter-N.raw.json (stream-json: one JSON object per line)
+ * or a legacy coder-iter-N.json (single JSON object) for cost and turns.
+ */
 export function parseCoderJson(content: string): {
   cost: number | null;
   turns: number | null;
 } {
   try {
-    const data = JSON.parse(content) as Record<string, unknown>;
-    const cost =
-      typeof data.total_cost_usd === "number" ? data.total_cost_usd : null;
-    const turns = typeof data.num_turns === "number" ? data.num_turns : null;
-    return { cost, turns };
+    const trimmed = content.trim();
+
+    // Stream-json format: multiple JSON objects, one per line.
+    // The last line typically contains the summary with cost/turns.
+    if (trimmed.includes("\n")) {
+      return parseStreamJson(trimmed);
+    }
+
+    // Single-object format (legacy)
+    return parseSingleJson(trimmed);
   } catch {
     return { cost: null, turns: null };
   }
+}
+
+/** Parse a single JSON object for cost and turns. */
+function parseSingleJson(content: string): {
+  cost: number | null;
+  turns: number | null;
+} {
+  const data = JSON.parse(content) as Record<string, unknown>;
+  const cost =
+    typeof data.total_cost_usd === "number" ? data.total_cost_usd : null;
+  const turns = typeof data.num_turns === "number" ? data.num_turns : null;
+  return { cost, turns };
+}
+
+/** Parse stream-json (one JSON object per line), scanning for cost/turns. */
+function parseStreamJson(content: string): {
+  cost: number | null;
+  turns: number | null;
+} {
+  const lines = content.split("\n").filter((l) => l.trim().length > 0);
+  let cost: number | null = null;
+  let turns: number | null = null;
+
+  // Scan lines in reverse -- summary data is usually at the end
+  for (let i = lines.length - 1; i >= 0; i--) {
+    try {
+      const data = JSON.parse(lines[i]) as Record<string, unknown>;
+      if (cost === null && typeof data.total_cost_usd === "number") {
+        cost = data.total_cost_usd;
+      }
+      if (turns === null && typeof data.num_turns === "number") {
+        turns = data.num_turns;
+      }
+      if (cost !== null && turns !== null) break;
+    } catch {
+      // Skip malformed lines
+    }
+  }
+
+  return { cost, turns };
 }
 
 /** Parse a review-iter-N.txt file for verdict and issue count. */
@@ -118,27 +168,32 @@ export function parseLoopLog(content: string): LoopLogMeta {
   return { date, taskFile, maxIterations, stopReason, totalCost, duration };
 }
 
-/** Extract the iteration number from a filename like coder-iter-3.json. */
+/** Extract the iteration number from a filename like coder-iter-3.raw.json. */
 function extractIterNum(filename: string): number {
-  return parseInt(filename.match(/\d+/)?.[0] ?? "0", 10);
+  const match = filename.match(/coder-iter-(\d+)/);
+  return match ? parseInt(match[1], 10) : 0;
 }
 
-/** Scan log directory and build iteration data. */
+/** Scan a single run directory for .raw.json iteration files (new format). */
 export function scanLogDirectory(logDir: string): IterationLog[] {
   if (!fs.existsSync(logDir)) return [];
 
   const files = fs.readdirSync(logDir);
   const iterations: IterationLog[] = [];
 
-  // Find all coder-iter-N.json files
-  const coderJsonFiles = files
-    .filter((f) => /^coder-iter-\d+\.json$/.test(f))
+  // Prefer .raw.json files (new format), fall back to .json (legacy)
+  let coderFiles = files
+    .filter((f) => /^coder-iter-\d+\.raw\.json$/.test(f))
     .sort((a, b) => extractIterNum(a) - extractIterNum(b));
 
-  for (const jsonFile of coderJsonFiles) {
-    const iterNum = extractIterNum(jsonFile);
+  if (coderFiles.length === 0) {
+    coderFiles = files
+      .filter((f) => /^coder-iter-\d+\.json$/.test(f))
+      .sort((a, b) => extractIterNum(a) - extractIterNum(b));
+  }
 
-    // Parse coder JSON
+  for (const jsonFile of coderFiles) {
+    const iterNum = extractIterNum(jsonFile);
     const jsonContent = fs.readFileSync(path.join(logDir, jsonFile), "utf-8");
     const { cost, turns } = parseCoderJson(jsonContent);
 
@@ -168,6 +223,62 @@ export function scanLogDirectory(logDir: string): IterationLog[] {
   return iterations;
 }
 
+/** Check if a directory name matches the timestamped run format (YYYY-MM-DD-HHMMSS). */
+function isRunDirectory(name: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}-\d{6}$/.test(name);
+}
+
+/** Build a RunSummary from a single run directory. */
+function buildRunSummary(runDir: string, runId: string | null): RunSummary {
+  const iterations = scanLogDirectory(runDir);
+
+  const loopLogPath = path.join(runDir, "loop.log");
+  let logMeta: LoopLogMeta = {
+    date: null,
+    taskFile: null,
+    maxIterations: null,
+    stopReason: null,
+    totalCost: null,
+    duration: null,
+  };
+  if (fs.existsSync(loopLogPath)) {
+    const logContent = fs.readFileSync(loopLogPath, "utf-8");
+    logMeta = parseLoopLog(logContent);
+  }
+
+  return {
+    runId,
+    date: logMeta.date,
+    taskFile: logMeta.taskFile,
+    iterationsCompleted: iterations.length,
+    maxIterations: logMeta.maxIterations,
+    stopReason: logMeta.stopReason,
+    totalCost: computeTotalCost(logMeta.totalCost, iterations),
+    duration: logMeta.duration,
+    iterations,
+  };
+}
+
+/**
+ * Scan a base logs directory for timestamped run subdirectories.
+ * Returns an array of RunSummary objects sorted newest first.
+ */
+export function scanRunDirectories(baseDir: string): RunSummary[] {
+  if (!fs.existsSync(baseDir)) return [];
+
+  const entries = fs.readdirSync(baseDir, { withFileTypes: true });
+  const runDirs = entries
+    .filter((e) => e.isDirectory() && isRunDirectory(e.name))
+    .map((e) => e.name)
+    .sort()
+    .reverse(); // newest first
+
+  return runDirs.map((dirName) => {
+    const runDir = path.join(baseDir, dirName);
+    return buildRunSummary(runDir, dirName);
+  });
+}
+
 /** Compute the total cost from iteration data or loop.log metadata. */
 function computeTotalCost(
   logMetaCost: number | null,
@@ -182,7 +293,6 @@ function computeTotalCost(
 function buildSummaryLines(summary: RunSummary): string[] {
   const lines: string[] = [];
 
-  if (summary.date) lines.push(`Date:        ${summary.date}`);
   if (summary.taskFile) lines.push(`Task:        ${summary.taskFile}`);
 
   const iterLabel = summary.maxIterations
@@ -218,70 +328,63 @@ function formatVerdict(iter: IterationLog): string {
   }
 }
 
-/** Show the latest loop run history. */
+/** Display a single run's detail (per-iteration breakdown). */
+function displayRunDetail(summary: RunSummary): void {
+  for (const iter of summary.iterations) {
+    const parts: string[] = [];
+    if (iter.turns !== null) parts.push(`${iter.turns} turns`);
+    if (iter.cost !== null) parts.push(`$${iter.cost.toFixed(2)}`);
+
+    const reviewPart = formatVerdict(iter);
+
+    p.log.message(
+      `  Iteration ${iter.iteration}:  Coder: ${parts.join(", ")}  |  Review: ${reviewPart}`,
+    );
+  }
+}
+
+/** Show loop run history, scanning per-run directories with flat fallback. */
 export async function historyCommand(options: HistoryOptions): Promise<void> {
   const destDir = process.cwd();
-  const logDir = path.join(destDir, ".claude", "logs");
+  const newLogDir = path.join(destDir, ".claude", "ccl", "logs");
+  const legacyLogDir = path.join(destDir, ".claude", "logs");
 
-  // Scan iterations
-  const iterations = scanLogDirectory(logDir);
+  // Try new per-run directory layout first
+  let summaries = scanRunDirectories(newLogDir);
 
-  // Parse loop.log for metadata
-  const loopLogPath = path.join(logDir, "loop.log");
-  let logMeta: LoopLogMeta = {
-    date: null,
-    taskFile: null,
-    maxIterations: null,
-    stopReason: null,
-    totalCost: null,
-    duration: null,
-  };
-  if (fs.existsSync(loopLogPath)) {
-    const logContent = fs.readFileSync(loopLogPath, "utf-8");
-    logMeta = parseLoopLog(logContent);
+  // Fall back to legacy flat directory
+  if (summaries.length === 0) {
+    const legacySummary = buildRunSummary(legacyLogDir, null);
+    if (legacySummary.iterations.length > 0) {
+      summaries = [legacySummary];
+    }
   }
 
-  // Build summary
-  const summary: RunSummary = {
-    date: logMeta.date,
-    taskFile: logMeta.taskFile,
-    iterationsCompleted: iterations.length,
-    maxIterations: logMeta.maxIterations,
-    stopReason: logMeta.stopReason,
-    totalCost: computeTotalCost(logMeta.totalCost, iterations),
-    duration: logMeta.duration,
-    iterations,
-  };
+  // Apply --last limit
+  if (options.last !== undefined && options.last > 0) {
+    summaries = summaries.slice(0, options.last);
+  }
 
   if (options.json) {
-    console.log(JSON.stringify(summary, null, 2));
+    console.log(JSON.stringify(summaries, null, 2));
     return;
   }
 
   p.intro(pc.cyan("ccl history"));
 
-  if (iterations.length === 0) {
-    p.log.warn("No loop runs found in .claude/logs/");
+  if (summaries.length === 0) {
+    p.log.warn("No loop runs found in .claude/ccl/logs/ or .claude/logs/");
     p.log.info("Run " + pc.cyan("ccl run task.md") + " to start a loop");
     p.outro("");
     return;
   }
 
-  // Summary
-  p.note(buildSummaryLines(summary).join("\n"), "Latest run");
+  for (const summary of summaries) {
+    const title = summary.runId ? `Run ${summary.runId}` : "Latest run";
+    p.note(buildSummaryLines(summary).join("\n"), title);
 
-  // Per-iteration detail
-  if (options.detail) {
-    for (const iter of iterations) {
-      const parts: string[] = [];
-      if (iter.turns !== null) parts.push(`${iter.turns} turns`);
-      if (iter.cost !== null) parts.push(`$${iter.cost.toFixed(2)}`);
-
-      const reviewPart = formatVerdict(iter);
-
-      p.log.message(
-        `  Iteration ${iter.iteration}:  Coder: ${parts.join(", ")}  |  Review: ${reviewPart}`,
-      );
+    if (options.detail) {
+      displayRunDetail(summary);
     }
   }
 

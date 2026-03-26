@@ -18,6 +18,9 @@ export interface RunOptions {
   tokenBudget?: number;
   coverageThreshold?: number;
   monitor?: boolean;
+  coderBudget?: number;
+  reviewerBudget?: number;
+  phaseTimeout?: string;
   prompt?: string;
   commit?: boolean;
   dryRun?: boolean;
@@ -103,6 +106,18 @@ export async function runCommand(
   const zeroDiffHalt = cclConfig?.loop.zeroDiffHalt;
   if (zeroDiffHalt) args.push("--zero-diff-halt");
 
+  const coderBudget = options.coderBudget ?? cclConfig?.loop.coderBudget;
+  if (coderBudget !== undefined && coderBudget !== null)
+    args.push("--coder-budget", String(coderBudget));
+
+  const reviewerBudget =
+    options.reviewerBudget ?? cclConfig?.loop.reviewerBudget;
+  if (reviewerBudget !== undefined && reviewerBudget !== null)
+    args.push("--reviewer-budget", String(reviewerBudget));
+
+  const phaseTimeout = options.phaseTimeout ?? cclConfig?.loop.phaseTimeout;
+  if (phaseTimeout) args.push("--phase-timeout", phaseTimeout);
+
   if (options.dryRun) {
     const agentsDir = path.join(process.cwd(), ".claude", "agents");
     const coderName = options.coderAgent ?? "coder";
@@ -128,6 +143,9 @@ export async function runCommand(
         `Auto-commit:     ${!noCommit}`,
         `Build gate:      ${buildGate ?? true}`,
         `Zero-diff halt:  ${zeroDiffHalt ?? true}`,
+        `Coder budget:    ${coderBudget !== undefined && coderBudget !== null ? "$" + coderBudget : "-"}`,
+        `Reviewer budget: ${reviewerBudget !== undefined && reviewerBudget !== null ? "$" + reviewerBudget : "-"}`,
+        `Phase timeout:   ${phaseTimeout ?? "-"}`,
       ].join("\n"),
       "Resolved configuration",
     );
@@ -176,11 +194,24 @@ export async function runCommand(
     },
   });
 
+  // Extract cleanup function for temp file removal
+  const cleanupTempFile = (): void => {
+    if (isTempFile && resolvedTaskFile) {
+      try {
+        fs.unlinkSync(resolvedTaskFile);
+      } catch {
+        // ignore
+      }
+    }
+  };
+
   // Forward signals — store references so we can remove just these handlers
   const onSigInt = (): void => {
+    cleanupTempFile();
     if (!child.killed) child.kill("SIGINT");
   };
   const onSigTerm = (): void => {
+    cleanupTempFile();
     if (!child.killed) child.kill("SIGTERM");
   };
   process.on("SIGINT", onSigInt);
@@ -190,14 +221,7 @@ export async function runCommand(
     process.removeListener("SIGINT", onSigInt);
     process.removeListener("SIGTERM", onSigTerm);
 
-    // Clean up temp file
-    if (isTempFile && resolvedTaskFile) {
-      try {
-        fs.unlinkSync(resolvedTaskFile);
-      } catch {
-        // ignore
-      }
-    }
+    cleanupTempFile();
 
     if (signal) {
       process.kill(process.pid, signal);

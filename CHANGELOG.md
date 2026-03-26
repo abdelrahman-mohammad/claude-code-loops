@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Per-phase budget limits (`--coder-budget`, `--reviewer-budget`) to cap cost per claude call
+- Per-phase timeout (`--phase-timeout`) to prevent hanging phases
+- Per-run timestamped log directories under `.claude/ccl/logs/`
+- Signal handling with partial report generation on interruption
+- `ccl history` now shows multiple past runs, not just the latest
+
+### Fixed
+
+- Piped exit codes no longer mask claude failures (two-step execution)
+- Cost tracking now includes both coder and reviewer phases
+- Zero-diff detection uses diff hashes to catch oscillating changes
+- Build errors preserved across iterations for better coder context
+- Auto-commit errors logged instead of silently swallowed
+- Rate-limit retry uses exponential backoff (30s, 60s, 120s)
+- Report generation uses atomic writes to prevent corruption
+- Temp files cleaned up on all exit paths
+
+### Changed
+
+- Config file moved from `.claude/ccl.json` to `.claude/ccl/ccl.json` (backward compatible)
+- Raw claude output saved to `.raw.json` files for debugging
+
 ## [0.7.0] - 2026-03-26
 
 ### Added

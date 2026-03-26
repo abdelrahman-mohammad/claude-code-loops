@@ -106,7 +106,7 @@ export async function initCommand(options: InitOptions): Promise<void> {
     writeCclConfig(destDir, finalConfig);
     syncAgentFrontmatter(destDir);
 
-    allFiles.push(".claude/ccl.json");
+    allFiles.push(".claude/ccl/ccl.json");
 
     // Summary
     if (!noInteractive) {

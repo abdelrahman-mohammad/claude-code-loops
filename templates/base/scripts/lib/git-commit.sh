@@ -6,9 +6,15 @@
 auto_commit() {
   local prefix="${1:-auto}"
 
-  if ! git diff --quiet || ! git diff --cached --quiet; then
-    git add -A
-    git commit -m "${prefix}: automated pass at $(date '+%H:%M:%S')" --no-verify
+  if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then
+    if ! git add -A 2>"${LOG_DIR:-/tmp}/git-error.txt"; then
+      log_error "git add failed: $(cat "${LOG_DIR:-/tmp}/git-error.txt" 2>/dev/null)"
+      return 1
+    fi
+    if ! git commit -m "${prefix}: automated pass at $(date '+%H:%M:%S')" --no-verify 2>"${LOG_DIR:-/tmp}/git-error.txt"; then
+      log_error "git commit failed: $(cat "${LOG_DIR:-/tmp}/git-error.txt" 2>/dev/null)"
+      return 1
+    fi
     log "Committed: ${prefix}"
     return 0
   else

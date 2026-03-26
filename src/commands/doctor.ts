@@ -97,8 +97,9 @@ export function checkClaudeDir(destDir: string): CheckResult {
 
 /** Check whether ccl.json exists and is valid. */
 export function checkCclConfig(destDir: string): CheckResult {
-  const configPath = path.join(destDir, ".claude", "ccl.json");
-  if (!fs.existsSync(configPath)) {
+  const configPath = path.join(destDir, ".claude", "ccl", "ccl.json");
+  const legacyPath = path.join(destDir, ".claude", "ccl.json");
+  if (!fs.existsSync(configPath) && !fs.existsSync(legacyPath)) {
     return {
       name: "ccl.json",
       status: "warn",
