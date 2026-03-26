@@ -2,52 +2,60 @@ name: Bug Report
 description: Report a bug in claude-code-loops
 labels: [bug]
 body:
-  - type: textarea
-    id: description
+  - type: input
+    id: version
     attributes:
-      label: Description
-      description: A clear description of the bug.
+      label: ccl version
+      description: Run `ccl -V`
+      placeholder: "0.6.2"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      options:
+        - Windows
+        - macOS
+        - Linux
+    validations:
+      required: true
+  - type: dropdown
+    id: command
+    attributes:
+      label: Command
+      options:
+        - init
+        - plan
+        - run
+        - config
+        - Other
     validations:
       required: true
   - type: textarea
-    id: steps
+    id: description
     attributes:
-      label: Steps to Reproduce
-      description: Minimal steps to reproduce the behavior.
-      placeholder: |
-        1. Run `npx claude-code-loops init --stack node`
-        2. ...
+      label: What happened?
     validations:
       required: true
   - type: textarea
     id: expected
     attributes:
-      label: Expected Behavior
-      description: What you expected to happen.
-    validations:
-      required: true
-  - type: dropdown
-    id: stack
-    attributes:
-      label: Stack
-      options:
-        - node
-        - spring-boot
-        - fastapi
-        - django
-        - nextjs
-        - generic
-        - N/A
+      label: Expected behavior
     validations:
       required: true
   - type: textarea
-    id: environment
+    id: steps
     attributes:
-      label: Environment
-      description: OS, Node.js version, Claude Code version.
+      label: Steps to reproduce
       placeholder: |
-        OS: macOS 14.3
-        Node: 22.1.0
-        Claude Code: 1.x
+        1. ccl init --stack node
+        2. ccl plan --prompt "..."
+        3. See error
     validations:
       required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error output
+      render: shell
