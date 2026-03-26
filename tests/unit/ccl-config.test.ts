@@ -160,10 +160,12 @@ describe("ccl-config", () => {
       const os = await import("node:os");
       const path = await import("node:path");
       const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ccl-test-"));
-      const claudeDir = path.join(tmpDir, ".claude");
-      fs.mkdirSync(claudeDir, { recursive: true });
 
       writeCclConfig(tmpDir, DEFAULT_CONFIG);
+
+      const configPath = path.join(tmpDir, ".claude", "ccl", "ccl.json");
+      expect(fs.existsSync(configPath)).toBe(true);
+
       const read = readCclConfig(tmpDir);
       expect(read).toEqual(DEFAULT_CONFIG);
 
@@ -173,6 +175,27 @@ describe("ccl-config", () => {
     it("returns null when no config exists", () => {
       const result = readCclConfig("/nonexistent/path");
       expect(result).toBeNull();
+    });
+
+    it("reads config from legacy .claude/ccl.json path", async () => {
+      const fs = await import("node:fs");
+      const os = await import("node:os");
+      const path = await import("node:path");
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ccl-test-"));
+      const claudeDir = path.join(tmpDir, ".claude");
+      fs.mkdirSync(claudeDir, { recursive: true });
+
+      const legacyPath = path.join(claudeDir, "ccl.json");
+      fs.writeFileSync(
+        legacyPath,
+        JSON.stringify(DEFAULT_CONFIG, null, 2) + "\n",
+        "utf-8",
+      );
+
+      const read = readCclConfig(tmpDir);
+      expect(read).toEqual(DEFAULT_CONFIG);
+
+      fs.rmSync(tmpDir, { recursive: true, force: true });
     });
   });
 });

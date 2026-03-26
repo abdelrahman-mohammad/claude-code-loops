@@ -27,6 +27,9 @@ export interface CclConfig {
     coverageThreshold: number | null;
     tokenBudget: number | null;
     timeLimit: string | null;
+    coderBudget: number | null;
+    reviewerBudget: number | null;
+    phaseTimeout: string | null;
   };
 }
 
@@ -51,10 +54,14 @@ export const DEFAULT_CONFIG: CclConfig = {
     coverageThreshold: null,
     tokenBudget: null,
     timeLimit: null,
+    coderBudget: null,
+    reviewerBudget: null,
+    phaseTimeout: null,
   },
 };
 
-const CCL_CONFIG_FILE = ".claude/ccl.json";
+const CCL_CONFIG_PATH = ".claude/ccl/ccl.json";
+const CCL_CONFIG_PATH_LEGACY = ".claude/ccl.json";
 
 export function validateModel(model: string): model is ModelName {
   return (VALID_MODELS as readonly string[]).includes(model);
@@ -107,14 +114,20 @@ export function mergeCclConfig(
 }
 
 export function readCclConfig(destDir: string): CclConfig | null {
-  const configPath = path.join(destDir, CCL_CONFIG_FILE);
-  if (!fs.existsSync(configPath)) return null;
-  return JSON.parse(fs.readFileSync(configPath, "utf-8")) as CclConfig;
+  const configPath = path.join(destDir, CCL_CONFIG_PATH);
+  if (fs.existsSync(configPath)) {
+    return JSON.parse(fs.readFileSync(configPath, "utf-8")) as CclConfig;
+  }
+  const legacyPath = path.join(destDir, CCL_CONFIG_PATH_LEGACY);
+  if (fs.existsSync(legacyPath)) {
+    return JSON.parse(fs.readFileSync(legacyPath, "utf-8")) as CclConfig;
+  }
+  return null;
 }
 
 export function writeCclConfig(destDir: string, config: CclConfig): void {
-  const configPath = path.join(destDir, CCL_CONFIG_FILE);
+  const configPath = path.join(destDir, CCL_CONFIG_PATH);
   const dir = path.dirname(configPath);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n", "utf-8");
 }

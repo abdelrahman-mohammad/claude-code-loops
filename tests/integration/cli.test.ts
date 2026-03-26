@@ -61,7 +61,7 @@ describe("ccl init", () => {
   it("creates ccl.json with default config", () => {
     runCcl(["init", "--stack", "node", "--no-interactive"], tmpDir);
 
-    const configPath = path.join(tmpDir, ".claude", "ccl.json");
+    const configPath = path.join(tmpDir, ".claude", "ccl", "ccl.json");
     expect(fs.existsSync(configPath)).toBe(true);
 
     const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
@@ -76,7 +76,7 @@ describe("ccl init", () => {
     );
 
     const config = JSON.parse(
-      fs.readFileSync(path.join(tmpDir, ".claude", "ccl.json"), "utf-8"),
+      fs.readFileSync(path.join(tmpDir, ".claude", "ccl", "ccl.json"), "utf-8"),
     );
     expect(config.agents.defaults.model).toBe("opus");
 
@@ -118,7 +118,7 @@ describe("ccl config", () => {
     runCcl(["config", "--model", "opus"], tmpDir);
 
     const config = JSON.parse(
-      fs.readFileSync(path.join(tmpDir, ".claude", "ccl.json"), "utf-8"),
+      fs.readFileSync(path.join(tmpDir, ".claude", "ccl", "ccl.json"), "utf-8"),
     );
     expect(config.agents.defaults.model).toBe("opus");
 
@@ -133,7 +133,7 @@ describe("ccl config", () => {
     runCcl(["config", "--model", "opus", "--agent", "coder"], tmpDir);
 
     const config = JSON.parse(
-      fs.readFileSync(path.join(tmpDir, ".claude", "ccl.json"), "utf-8"),
+      fs.readFileSync(path.join(tmpDir, ".claude", "ccl", "ccl.json"), "utf-8"),
     );
     expect(config.agents.defaults.model).toBe("sonnet");
     expect(config.agents.overrides.coder.model).toBe("opus");
@@ -155,7 +155,7 @@ describe("ccl config", () => {
     runCcl(["config", "--iterations", "5", "--time-limit", "30m"], tmpDir);
 
     const config = JSON.parse(
-      fs.readFileSync(path.join(tmpDir, ".claude", "ccl.json"), "utf-8"),
+      fs.readFileSync(path.join(tmpDir, ".claude", "ccl", "ccl.json"), "utf-8"),
     );
     expect(config.loop.iterations).toBe(5);
     expect(config.loop.timeLimit).toBe("30m");
@@ -173,7 +173,7 @@ describe("ccl config", () => {
     runCcl(["config", "--reset"], tmpDir);
 
     const config = JSON.parse(
-      fs.readFileSync(path.join(tmpDir, ".claude", "ccl.json"), "utf-8"),
+      fs.readFileSync(path.join(tmpDir, ".claude", "ccl", "ccl.json"), "utf-8"),
     );
     expect(config.agents.defaults.model).toBe("sonnet");
   });
@@ -224,7 +224,7 @@ describe("ccl run (argument handling)", () => {
     runCcl(["config", "--iterations", "3"], tmpDir);
 
     const config = JSON.parse(
-      fs.readFileSync(path.join(tmpDir, ".claude", "ccl.json"), "utf-8"),
+      fs.readFileSync(path.join(tmpDir, ".claude", "ccl", "ccl.json"), "utf-8"),
     );
     expect(config.loop.iterations).toBe(3);
   });
