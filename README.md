@@ -1,4 +1,4 @@
-# claude-code-loops
+# claude-code-loops (WIP)
 
 [![CI](https://github.com/abdelrahman-mohammad/claude-code-loops/actions/workflows/ci.yml/badge.svg)](https://github.com/abdelrahman-mohammad/claude-code-loops/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/claude-code-loops)](https://www.npmjs.com/package/claude-code-loops)
