@@ -62,6 +62,13 @@ program
     "Coverage target percentage",
     parseFloat,
   )
+  .option("--coder-budget <usd>", "Max cost per coder call in USD", parseFloat)
+  .option(
+    "--reviewer-budget <usd>",
+    "Max cost per reviewer call in USD",
+    parseFloat,
+  )
+  .option("--phase-timeout <duration>", "Timeout per phase (e.g. 10m, 1h)")
   .option("--monitor", "Enable live tmux dashboard")
   .option("--no-commit", "Skip auto-commit after each phase")
   .option("--dry-run", "Show resolved config without running")
@@ -86,6 +93,9 @@ program
   .option("--coverage-threshold <pct>", "Coverage target percentage")
   .option("--token-budget <usd>", "Cost ceiling in USD")
   .option("--time-limit <duration>", "Wall-clock timeout (e.g. 30m, 2h)")
+  .option("--coder-budget <usd>", "Max cost per coder call in USD")
+  .option("--reviewer-budget <usd>", "Max cost per reviewer call in USD")
+  .option("--phase-timeout <duration>", "Timeout per phase (e.g. 10m, 1h)")
   .option("--show", "Print current config as JSON")
   .option("--reset", "Reset config to defaults")
   .action(async (options) => {

@@ -31,6 +31,9 @@ export interface ConfigOptions {
   coverageThreshold?: string;
   tokenBudget?: string;
   timeLimit?: string;
+  coderBudget?: string;
+  reviewerBudget?: string;
+  phaseTimeout?: string;
   show?: boolean;
   reset?: boolean;
 }
@@ -92,6 +95,11 @@ export function applyConfigFlags(
   if (options.tokenBudget)
     updated.loop.tokenBudget = parseFloat(options.tokenBudget);
   if (options.timeLimit) updated.loop.timeLimit = options.timeLimit;
+  if (options.coderBudget)
+    updated.loop.coderBudget = parseFloat(options.coderBudget);
+  if (options.reviewerBudget)
+    updated.loop.reviewerBudget = parseFloat(options.reviewerBudget);
+  if (options.phaseTimeout) updated.loop.phaseTimeout = options.phaseTimeout;
 
   return { config: updated, warnings };
 }
@@ -141,7 +149,10 @@ export async function configCommand(options: ConfigOptions): Promise<void> {
     options.monitor ||
     options.coverageThreshold ||
     options.tokenBudget ||
-    options.timeLimit
+    options.timeLimit ||
+    options.coderBudget ||
+    options.reviewerBudget ||
+    options.phaseTimeout
   );
 
   if (hasFlags) {
@@ -197,6 +208,9 @@ async function runInteractiveConfig(destDir: string): Promise<void> {
       `  coverageThreshold: ${config.loop.coverageThreshold ?? "-"}`,
       `  tokenBudget:       ${config.loop.tokenBudget ?? "-"}`,
       `  timeLimit:         ${config.loop.timeLimit ?? "-"}`,
+      `  coderBudget:       ${config.loop.coderBudget ?? "-"}`,
+      `  reviewerBudget:    ${config.loop.reviewerBudget ?? "-"}`,
+      `  phaseTimeout:      ${config.loop.phaseTimeout ?? "-"}`,
     ].join("\n"),
     "Current configuration",
   );
