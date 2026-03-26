@@ -7,6 +7,8 @@ import { configCommand } from "./commands/config.js";
 import { statusCommand } from "./commands/status.js";
 import { doctorCommand } from "./commands/doctor.js";
 import { agentListCommand } from "./commands/agent.js";
+import { historyCommand } from "./commands/history.js";
+import { upgradeCommand } from "./commands/upgrade.js";
 
 const require = createRequire(import.meta.url);
 const pkg = require("../package.json");
@@ -103,6 +105,24 @@ program
   .description("Verify your setup is correct and diagnose issues")
   .action(async () => {
     await doctorCommand();
+  });
+
+program
+  .command("history")
+  .description("Show data from the latest loop run")
+  .option("--detail", "Show per-iteration breakdown")
+  .option("--json", "Output as JSON")
+  .action(async (options) => {
+    await historyCommand(options);
+  });
+
+program
+  .command("upgrade")
+  .description("Update scaffolded files to latest template versions")
+  .option("--force", "Skip confirmation prompt")
+  .option("--dry-run", "Show what would change without applying")
+  .action(async (options) => {
+    await upgradeCommand(options);
   });
 
 const agentCmd = program.command("agent").description("Manage agents");
