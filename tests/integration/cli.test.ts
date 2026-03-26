@@ -10,10 +10,10 @@ function createTempProject(): string {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "ccl-test-"));
   fs.cpSync(FIXTURE_DIR, tmp, { recursive: true });
   // Init a git repo so loop.sh and other commands work
-  execSync("git init && git add -A && git commit -m init", {
-    cwd: tmp,
-    stdio: "ignore",
-  });
+  execSync(
+    'git init && git config user.email "test@test.com" && git config user.name "Test" && git add -A && git commit -m init',
+    { cwd: tmp, stdio: "ignore" },
+  );
   return tmp;
 }
 
@@ -34,7 +34,7 @@ describe("ccl init", () => {
   });
 
   afterEach(() => {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    if (tmpDir) fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
   it("scaffolds .claude directory with agents and rules", () => {
@@ -111,7 +111,7 @@ describe("ccl config", () => {
   });
 
   afterEach(() => {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    if (tmpDir) fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
   it("updates model in ccl.json and syncs agent frontmatter", () => {
@@ -188,7 +188,7 @@ describe("ccl plan (without claude)", () => {
   });
 
   afterEach(() => {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    if (tmpDir) fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
   it("creates plans directory", () => {
@@ -208,7 +208,7 @@ describe("ccl run (argument handling)", () => {
   });
 
   afterEach(() => {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    if (tmpDir) fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
   it("errors without task file", () => {
