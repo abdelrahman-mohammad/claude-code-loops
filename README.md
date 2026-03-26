@@ -104,6 +104,48 @@ First-class CLI wrapper around `loop.sh` with signal forwarding:
 ```bash
 ccl run task.md                              # Defaults: 10 iterations, smart stopping
 ccl run task.md --iterations 5 --coder-turns 30   # Customize
+ccl run task.md --dry-run                    # Preview resolved config without running
+```
+
+### `status` -- Show Project Configuration
+
+```bash
+ccl status              # Human-friendly summary of current setup
+ccl status --json       # Machine-readable JSON output
+```
+
+### `doctor` -- Verify Setup
+
+Diagnostic checks to verify your setup is correct and catch common issues:
+
+```bash
+ccl doctor              # Run all checks
+```
+
+### `upgrade` -- Update Scaffolded Files
+
+Update scaffolded files to the latest template versions:
+
+```bash
+ccl upgrade             # Update templates to latest
+```
+
+### `agent list` -- List Agents
+
+List all agents and their configuration, including per-agent overrides:
+
+```bash
+ccl agent list          # Show all agents
+ccl agent list --json   # Machine-readable JSON output
+```
+
+### `history` -- Show Loop Run Results
+
+Show latest loop run data and iteration breakdown:
+
+```bash
+ccl history             # Show latest run results
+ccl history --json      # Machine-readable JSON output
 ```
 
 ### Running the Loop Directly

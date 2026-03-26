@@ -4,6 +4,11 @@ import { initCommand } from "./commands/init.js";
 import { planCommand } from "./commands/plan.js";
 import { runCommand } from "./commands/run.js";
 import { configCommand } from "./commands/config.js";
+import { statusCommand } from "./commands/status.js";
+import { doctorCommand } from "./commands/doctor.js";
+import { agentListCommand } from "./commands/agent.js";
+import { historyCommand } from "./commands/history.js";
+import { upgradeCommand } from "./commands/upgrade.js";
 
 const require = createRequire(import.meta.url);
 const pkg = require("../package.json");
@@ -59,6 +64,7 @@ program
   )
   .option("--monitor", "Enable live tmux dashboard")
   .option("--no-commit", "Skip auto-commit after each phase")
+  .option("--dry-run", "Show resolved config without running")
   .action(async (taskFile, options) => {
     await runCommand(taskFile, options);
   });
@@ -84,6 +90,49 @@ program
   .option("--reset", "Reset config to defaults")
   .action(async (options) => {
     await configCommand(options);
+  });
+
+program
+  .command("status")
+  .description("Show current project configuration and setup status")
+  .option("--json", "Output as JSON")
+  .action(async (options) => {
+    await statusCommand(options);
+  });
+
+program
+  .command("doctor")
+  .description("Verify your setup is correct and diagnose issues")
+  .action(async () => {
+    await doctorCommand();
+  });
+
+program
+  .command("history")
+  .description("Show data from the latest loop run")
+  .option("--detail", "Show per-iteration breakdown")
+  .option("--json", "Output as JSON")
+  .action(async (options) => {
+    await historyCommand(options);
+  });
+
+program
+  .command("upgrade")
+  .description("Update scaffolded files to latest template versions")
+  .option("--force", "Skip confirmation prompt")
+  .option("--dry-run", "Show what would change without applying")
+  .action(async (options) => {
+    await upgradeCommand(options);
+  });
+
+const agentCmd = program.command("agent").description("Manage agents");
+
+agentCmd
+  .command("list")
+  .description("List all agents and their configuration")
+  .option("--json", "Output as JSON")
+  .action(async (options) => {
+    await agentListCommand(options);
   });
 
 program.parse();

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `ccl status` command — human-friendly view of project configuration
+- `ccl doctor` command — diagnostic checks for setup verification
+- `ccl upgrade` command — update scaffolded files to latest templates
+- `ccl agent list` command — list agents with configuration and overrides
+- `ccl history` command — show latest loop run data and iteration breakdown
+- `ccl run --dry-run` flag — preview resolved loop config without starting
+
 ## [0.6.3] - 2026-03-26
 
 ### Fixed

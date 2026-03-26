@@ -20,6 +20,7 @@ export interface RunOptions {
   monitor?: boolean;
   prompt?: string;
   commit?: boolean;
+  dryRun?: boolean;
 }
 
 export async function runCommand(
@@ -102,6 +103,57 @@ export async function runCommand(
   const zeroDiffHalt = cclConfig?.loop.zeroDiffHalt;
   if (zeroDiffHalt) args.push("--zero-diff-halt");
 
+  if (options.dryRun) {
+    const agentsDir = path.join(process.cwd(), ".claude", "agents");
+    const coderName = options.coderAgent ?? "coder";
+    const reviewerName = options.reviewerAgent ?? "reviewer";
+    const coderFile = path.join(agentsDir, `${coderName}.md`);
+    const reviewerFile = path.join(agentsDir, `${reviewerName}.md`);
+
+    p.intro(pc.cyan("ccl run --dry-run"));
+
+    p.note(
+      [
+        `Task file:       ${pc.cyan(path.basename(resolvedTaskFile))}`,
+        `Loop script:     ${loopScript}`,
+        `Iterations:      ${iterations ?? 10}`,
+        `Coder agent:     ${coderName}`,
+        `Reviewer agent:  ${reviewerName}`,
+        `Stop on pass:    ${stopOnPass ?? true}`,
+        `Circuit breaker: ${circuitBreaker ?? 3}`,
+        `Time limit:      ${timeLimit ?? "-"}`,
+        `Token budget:    ${tokenBudget ? "$" + tokenBudget : "-"}`,
+        `Coverage:        ${coverageThreshold ? coverageThreshold + "%" : "-"}`,
+        `Monitor:         ${monitor ?? false}`,
+        `Auto-commit:     ${!noCommit}`,
+        `Build gate:      ${buildGate ?? true}`,
+        `Zero-diff halt:  ${zeroDiffHalt ?? true}`,
+      ].join("\n"),
+      "Resolved configuration",
+    );
+
+    p.note(
+      [
+        `Coder:    ${fs.existsSync(coderFile) ? pc.green("found") : pc.red("missing")}  ${coderFile}`,
+        `Reviewer: ${fs.existsSync(reviewerFile) ? pc.green("found") : pc.red("missing")}  ${reviewerFile}`,
+      ].join("\n"),
+      "Agent files",
+    );
+
+    p.note(`bash ${args.join(" ")}`, "Command");
+
+    if (isTempFile && resolvedTaskFile) {
+      try {
+        fs.unlinkSync(resolvedTaskFile);
+      } catch {
+        /* ignore */
+      }
+    }
+
+    p.outro("Dry run complete — no loop was started");
+    return;
+  }
+
   p.log.info(`Running loop on ${pc.cyan(path.basename(resolvedTaskFile))}...`);
 
   // Resolve stream-filter script path for loop.sh to use
@@ -124,16 +176,19 @@ export async function runCommand(
     },
   });
 
-  // Forward signals
-  const forwardSignal = (signal: NodeJS.Signals) => {
-    if (!child.killed) child.kill(signal);
+  // Forward signals — store references so we can remove just these handlers
+  const onSigInt = (): void => {
+    if (!child.killed) child.kill("SIGINT");
   };
-  process.on("SIGINT", () => forwardSignal("SIGINT"));
-  process.on("SIGTERM", () => forwardSignal("SIGTERM"));
+  const onSigTerm = (): void => {
+    if (!child.killed) child.kill("SIGTERM");
+  };
+  process.on("SIGINT", onSigInt);
+  process.on("SIGTERM", onSigTerm);
 
   child.on("close", (code, signal) => {
-    process.removeAllListeners("SIGINT");
-    process.removeAllListeners("SIGTERM");
+    process.removeListener("SIGINT", onSigInt);
+    process.removeListener("SIGTERM", onSigTerm);
 
     // Clean up temp file
     if (isTempFile && resolvedTaskFile) {

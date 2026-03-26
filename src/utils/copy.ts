@@ -34,7 +34,7 @@ export interface CopyOptions {
 /**
  * Recursively collect all file paths relative to a root directory.
  */
-function collectFiles(dir: string, base: string = ""): string[] {
+export function collectFiles(dir: string, base: string = ""): string[] {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   const files: string[] = [];
   for (const entry of entries) {
