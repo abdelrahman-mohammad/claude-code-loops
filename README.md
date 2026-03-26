@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/abdelrahman-mohammad/claude-code-loops/actions/workflows/ci.yml/badge.svg)](https://github.com/abdelrahman-mohammad/claude-code-loops/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/claude-code-loops)](https://www.npmjs.com/package/claude-code-loops)
+[![npm downloads](https://img.shields.io/npm/dm/claude-code-loops)](https://www.npmjs.com/package/claude-code-loops)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 Autonomous code-review-fix loops for [Claude Code](https://docs.anthropic.com/en/docs/claude-code).

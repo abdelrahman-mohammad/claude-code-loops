@@ -5,6 +5,84 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.6.3] - 2026-03-26
+
+### Fixed
+
+- Planner outputs text directly; Node.js writes the plan file (fixes Write tool permission issue in print mode)
+- Plan filenames use Claude-generated title slug: `{date}-{4-word-slug}.md` in `.claude/plans/ccl/`
+
+### Added
+
+- Integration tests for init, config, plan, and run commands
+- Windows CI job (`windows-latest`, Node 22)
+- Dependabot config for npm and GitHub Actions updates
+- Improved bug report template with version, OS, and command fields
+
+### Changed
+
+- CI and release workflows build before test (integration tests need `dist/`)
+
+## [0.6.0] - 2026-03-25
+
+### Added
+
+- Real-time streaming output for `ccl plan` and `ccl run` using `--output-format stream-json`
+- Shared `claude-stream` utility for parsing stream-json events
+- `CCL_STREAM_FILTER` env var for loop.sh to enable streaming during coder/reviewer phases
+- Stream filter bin script (`bin/stream-filter.js`) for piping claude output
+
+### Changed
+
+- Plan command no longer shows redundant text preview — just task count
+- Falls back gracefully to non-streaming when filter is unavailable
+
+## [0.5.0] - 2026-03-24
+
+### Added
+
+- `ccl config` command for viewing and modifying persistent configuration
+- `--model` flag on `ccl init` for setting agent model during scaffolding
+- `.claude/ccl.json` config file as single source of truth for agent and loop settings
+- Per-agent overrides in config (e.g., coder uses opus, reviewer uses sonnet)
+- Agent frontmatter sync from config on init, config change, and run
+- Interactive config menu with current settings dashboard
+- `--show` flag to print config as JSON
+- `--reset` flag to restore defaults
+
+### Changed
+
+- `ccl run` reads loop defaults from `ccl.json`, CLI flags override
+- Removed `includeScripts` prompt — scripts are always included
+
+## [0.4.0] - 2026-03-24
+
+### Added
+
+- Planner agent (`templates/base/.claude/agents/planner.md`) with superpowers-inspired methodology
+- Debugger agent (`templates/base/.claude/agents/debugger.md`) for systematic root-cause investigation
+- Coder agent improvements: self-review checklist, escalation protocol, explore-first workflow
+- Reviewer agent improvements: three-tier verdicts (PASS, PASS_WITH_SUGGESTIONS, FAIL), issue categorization (Critical/Important/Suggestion), plan alignment check
+- Generic stack now includes a coder agent
+- `ccl plan` uses planner agent with fallback to bundled prompt
+
+### Changed
+
+- Replaced `templates/base/prompts/plan-system-prompt.md` with planner agent
+
+### Removed
+
+- `templates/base/prompts/` directory
+
+## [0.3.0] - 2026-03-24
+
+### Added
+
+- `ccl` shorthand binary (`npx ccl init` instead of `npx claude-code-loops init`)
+- README diagram improvements
+
 ## [0.2.0] - 2026-03-24
 
 ### Added
@@ -13,14 +91,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `run` command — first-class CLI wrapper around loop.sh with signal forwarding
 - `--monitor` flag for loop.sh — live tmux dashboard showing iteration progress
 - Post-loop reporting — generates `loop-report.md` with cost, iteration, and diff summaries
-- Project `.claude/` dev configuration:
-  - Rules: no-attribution, code-style, template-integrity (path-scoped)
-  - Skills: template-guide (agent/hook/rule authoring reference), bash-dev (portability, ShellCheck, bats-core)
-  - Hooks: auto-format (Prettier PostToolUse), type-check (tsc Stop hook), auto-test (vitest PostToolUse)
-  - PreToolUse guards: protected file blocking, push-to-main blocking
-  - SessionStart hook: git branch context injection
-  - Checkpoint commit Stop hook safety net
-  - Git workflow instructions in CLAUDE.md (incremental conventional commits)
 
 ## [0.1.1] - 2026-03-24
 
@@ -29,21 +99,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Python/FastAPI stack — async correctness agents, ruff auto-format hooks, Pydantic v2 rules
 - Python/Django stack — N+1 query detection agents, ruff + djlint hooks, ORM pattern rules
 - Next.js stack — Server/Client boundary agents, prettier + eslint hooks, App Router rules
-- Smart stopping conditions in loop.sh:
-  - `--stop-on-pass` — exit when tests pass + review LGTM (default: ON)
-  - `--stop-on-no-progress` — circuit breaker for stuck agents (default: ON)
-  - `--build-gate` — skip reviewer on build failure (default: ON)
-  - `--zero-diff-halt` — halt on no changes with 1 retry (default: ON)
-  - `--coverage-threshold` — stop when coverage meets target (opt-in)
-  - `--token-budget` — cost ceiling across iterations (opt-in)
-  - `--time-limit` — wall-clock timeout (opt-in)
-- `stopping.sh` helper library with composable stop condition functions
-- Stack auto-detection for FastAPI (pyproject.toml/requirements.txt), Django (manage.py), Next.js (next.config.\*)
+- Smart stopping conditions in loop.sh
+- Stack auto-detection for FastAPI, Django, Next.js
 
 ### Changed
 
 - Default `--iterations` increased from 3 to 10 (smart stopping is now the primary exit)
-- Stack detection priority: Next.js > Node > Django > FastAPI > Spring Boot > generic
 
 ## [0.1.0] - 2026-03-24
 
@@ -51,16 +112,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `init` command with interactive @clack/prompts flow
 - Node.js/TypeScript stack — coder + reviewer agents, Prettier hooks, TypeScript rules
-- Java/Spring Boot stack — spring-coder (Opus) + spring-reviewer agents, google-java-format hooks, compile-check Stop hook
+- Java/Spring Boot stack — spring-coder (Opus) + spring-reviewer agents, google-java-format hooks
 - Generic stack — minimal reviewer agent with general checklist
-- Base templates shared across all stacks:
-  - Safety rules (protected file blocking)
-  - Orchestration loop script (`scripts/loop.sh`)
-  - Helper libraries (rate-limit, git-commit, logging)
-  - `.claudeignore` with common ignores
-- Merge-safe installation: settings.json deep-merged, CLAUDE.md appended with markers, .claudeignore deduplicated
-- Three merge modes: merge (skip existing), overwrite, backup
-- `{{projectName}}` template variable replacement
-- Auto-detection of Node.js and Spring Boot from marker files
-- `--stack` flag for non-interactive mode
+- Base templates: safety rules, loop.sh, helper libraries, .claudeignore
+- Merge-safe installation: settings.json deep-merged, CLAUDE.md appended, .claudeignore deduplicated
+- Three merge modes: merge, overwrite, backup
+- Auto-detection of Node.js and Spring Boot
 - 35 tests (25 unit + 10 E2E)
