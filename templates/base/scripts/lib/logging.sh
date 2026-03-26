@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # logging.sh — Timestamped logging utilities
 
-LOG_DIR="${LOG_DIR:-.claude/logs}"
+LOG_DIR="${LOG_DIR:-.claude/ccl/logs}"
 mkdir -p "$LOG_DIR"
 
 log() {

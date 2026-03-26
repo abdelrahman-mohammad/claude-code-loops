@@ -24,7 +24,10 @@
 #   --coder-turns N             Max turns for coder [20]
 #   --reviewer-turns N          Max turns for reviewer [8]
 #   --no-commit                 Skip auto-commit after each phase
-#   --log-dir DIR               Log directory [.claude/logs]
+#   --log-dir DIR               Log base directory [.claude/ccl/logs]
+#   --phase-timeout DURATION    Timeout per claude invocation [10m]
+#   --coder-budget USD          Per-call budget for coder [OFF]
+#   --reviewer-budget USD       Per-call budget for reviewer [OFF]
 #   --permission-mode MODE      Permission mode [acceptEdits]
 #   --monitor                   Live tmux dashboard [OFF]
 #   --report <file>             Generate post-loop report [loop-report.md]
@@ -54,6 +57,10 @@ REVIEW_FILE="review-output.md"
 ENABLE_MONITOR=false
 REPORT_FILE="loop-report.md"
 ENABLE_REPORT=true
+PHASE_TIMEOUT=""
+CODER_BUDGET=""
+REVIEWER_BUDGET=""
+LOG_DIR_BASE=""
 
 # Stopping condition defaults
 STOP_ON_PASS=true
@@ -74,7 +81,10 @@ while [[ $# -gt 0 ]]; do
     --coder-turns)             CODER_TURNS="$2"; shift 2 ;;
     --reviewer-turns)          REVIEWER_TURNS="$2"; shift 2 ;;
     --no-commit)               AUTO_COMMIT=false; shift ;;
-    --log-dir)                 LOG_DIR="$2"; mkdir -p "$LOG_DIR"; shift 2 ;;
+    --log-dir)                 LOG_DIR_BASE="$2"; shift 2 ;;
+    --phase-timeout)           PHASE_TIMEOUT="$2"; shift 2 ;;
+    --coder-budget)            CODER_BUDGET="$2"; shift 2 ;;
+    --reviewer-budget)         REVIEWER_BUDGET="$2"; shift 2 ;;
     --permission-mode)         PERMISSION_MODE="$2"; shift 2 ;;
     --stop-on-pass)            STOP_ON_PASS=true; shift ;;
     --no-stop-on-pass)         STOP_ON_PASS=false; shift ;;
@@ -118,6 +128,14 @@ fi
 
 TASK_CONTENT=$(cat "$TASK_FILE")
 
+# ── Create timestamped log directory ──────────────────────
+RUN_TIMESTAMP=$(date '+%Y-%m-%d-%H%M%S')
+LOG_DIR="${LOG_DIR_BASE:-.claude/ccl/logs}/$RUN_TIMESTAMP"
+mkdir -p "$LOG_DIR"
+
+# Create 'latest' symlink
+ln -sfn "$RUN_TIMESTAMP" "${LOG_DIR_BASE:-.claude/ccl/logs}/latest" 2>/dev/null || true
+
 # ── Main loop ──────────────────────────────────────────────
 log "Starting code-review-fix loop"
 log "Task file: $TASK_FILE"
@@ -143,7 +161,7 @@ for i in $(seq 1 "$ITERATIONS"); do
 
   # ── Coder phase ──────────────────────────────────────────
   CODER_PROMPT="$TASK_CONTENT"
-  if [ -f "$LOG_DIR/build_errors.txt" ]; then
+  if [ -s "$LOG_DIR/build_errors.txt" ]; then
     CODER_PROMPT="The build is failing. Fix these errors first, then continue with the task.
 
 --- BUILD ERRORS ---
@@ -151,7 +169,6 @@ $(cat "$LOG_DIR/build_errors.txt")
 
 --- ORIGINAL TASK ---
 $TASK_CONTENT"
-    rm -f "$LOG_DIR/build_errors.txt"
   elif [ -f "$REVIEW_FILE" ]; then
     CODER_PROMPT="Fix ALL issues described below. After fixing, verify the build and tests pass.
 
@@ -164,43 +181,44 @@ $TASK_CONTENT"
 
   log "Coder phase..."
   [ "$MONITOR_ENABLED" = true ] && update_status "$i" "$ITERATIONS" "coder"
-  CODER_OUTPUT=""
-  if [ -n "${CCL_STREAM_FILTER:-}" ] && [ -f "$CCL_STREAM_FILTER" ]; then
-    # Stream mode: show tool activity in real-time, capture result text
-    # Filter writes tool activity to stderr (shown in terminal), result text to stdout (captured)
-    if run_with_retry claude -p "$CODER_PROMPT" \
-      --agent "$CODER_AGENT" \
-      --max-turns "$CODER_TURNS" \
-      --permission-mode "$PERMISSION_MODE" \
-      --output-format stream-json --verbose \
-      2>"$LOG_DIR/coder-iter-$i.stderr" \
-      | node "$CCL_STREAM_FILTER" \
-      > "$LOG_DIR/coder-iter-$i.txt"; then
-      CODER_OUTPUT=$(cat "$LOG_DIR/coder-iter-$i.txt")
+
+  # Step 1: Run claude, capture raw output
+  timeout "${PHASE_TIMEOUT:-10m}" claude -p "$CODER_PROMPT" \
+    --agent "$CODER_AGENT" \
+    --max-turns "$CODER_TURNS" \
+    --permission-mode "$PERMISSION_MODE" \
+    ${CODER_BUDGET:+--max-budget-usd "$CODER_BUDGET"} \
+    --output-format stream-json --verbose \
+    > "$LOG_DIR/coder-iter-$i.raw.json" \
+    2>"$LOG_DIR/coder-iter-$i.stderr"
+  CLAUDE_EXIT=$?
+
+  # Step 2: Check exit code (124 = timeout)
+  if [ $CLAUDE_EXIT -ne 0 ]; then
+    if [ $CLAUDE_EXIT -eq 124 ]; then
+      log_error "Coder timed out on iteration $i (limit: ${PHASE_TIMEOUT:-10m})"
     else
-      log_error "Coder failed on iteration $i"
-      STOP_REASON="coder_failure"
-      break
+      log_error "Coder failed on iteration $i (exit $CLAUDE_EXIT)"
     fi
-  else
-    # Fallback: no streaming
-    if run_with_retry claude -p "$CODER_PROMPT" \
-      --agent "$CODER_AGENT" \
-      --max-turns "$CODER_TURNS" \
-      --permission-mode "$PERMISSION_MODE" \
-      --output-format json \
-      > "$LOG_DIR/coder-iter-$i.json" 2>&1; then
-      CODER_OUTPUT=$(cat "$LOG_DIR/coder-iter-$i.json")
-    else
-      log_error "Coder failed on iteration $i"
-      STOP_REASON="coder_failure"
-      break
-    fi
+    STOP_REASON="coder_failure"
+    break
   fi
+
+  # Step 3: Filter for display (non-fatal)
+  if [ -n "${CCL_STREAM_FILTER:-}" ] && [ -f "$CCL_STREAM_FILTER" ]; then
+    node "$CCL_STREAM_FILTER" < "$LOG_DIR/coder-iter-$i.raw.json" \
+      > "$LOG_DIR/coder-iter-$i.txt" 2>/dev/null || true
+  fi
+
+  # Step 4: Extract text output for downstream use
+  CODER_OUTPUT=$(cat "$LOG_DIR/coder-iter-$i.raw.json")
+
+  # Extract cost from coder output
+  extract_cost "$LOG_DIR/coder-iter-$i.raw.json"
 
   # ── Auto-commit ──────────────────────────────────────────
   if [ "$AUTO_COMMIT" = true ]; then
-    auto_commit "iteration-$i/code"
+    auto_commit "iteration-$i/code" || log "Warning: auto-commit failed, continuing"
   fi
 
   # ── Build gate (skip reviewer if build fails) ────────────
@@ -208,7 +226,7 @@ $TASK_CONTENT"
     if ! compilation_gate; then
       log "Skipping reviewer — feeding build errors to next coder iteration"
       if [ "$AUTO_COMMIT" = true ]; then
-        auto_commit "iteration-$i/build-failed"
+        auto_commit "iteration-$i/build-failed" || log "Warning: auto-commit failed, continuing"
       fi
 
       # Check hard stop conditions even on build failure
@@ -232,26 +250,39 @@ Otherwise, list all findings with severity, file, line, and description.
 --- DIFF ---
 $DIFF"
 
-  if [ -n "${CCL_STREAM_FILTER:-}" ] && [ -f "$CCL_STREAM_FILTER" ]; then
-    REVIEW_OUTPUT=$(claude -p "$REVIEW_PROMPT" \
-      --agent "$REVIEWER_AGENT" \
-      --max-turns "$REVIEWER_TURNS" \
-      --permission-mode "$PERMISSION_MODE" \
-      --output-format stream-json --verbose \
-      2>"$LOG_DIR/review-iter-$i.stderr" \
-      | node "$CCL_STREAM_FILTER" 2>&1) || REVIEW_OUTPUT="Review failed — treating as needs changes"
+  # Step 1: Run claude reviewer, capture raw output
+  timeout "${PHASE_TIMEOUT:-10m}" claude -p "$REVIEW_PROMPT" \
+    --agent "$REVIEWER_AGENT" \
+    --max-turns "$REVIEWER_TURNS" \
+    --permission-mode "$PERMISSION_MODE" \
+    ${REVIEWER_BUDGET:+--max-budget-usd "$REVIEWER_BUDGET"} \
+    --output-format stream-json --verbose \
+    > "$LOG_DIR/review-iter-$i.raw.json" \
+    2>"$LOG_DIR/review-iter-$i.stderr"
+  CLAUDE_EXIT=$?
+
+  # Step 2: Check exit code (124 = timeout)
+  if [ $CLAUDE_EXIT -ne 0 ]; then
+    if [ $CLAUDE_EXIT -eq 124 ]; then
+      log_error "Reviewer timed out on iteration $i (limit: ${PHASE_TIMEOUT:-10m})"
+    else
+      log_error "Reviewer failed on iteration $i (exit $CLAUDE_EXIT)"
+    fi
+    REVIEW_OUTPUT="Review failed — treating as needs changes"
   else
-    REVIEW_OUTPUT=$(echo "$DIFF" | claude -p \
-      "Review these code changes thoroughly. Check for bugs, security issues, type safety, and code quality.
-If everything is acceptable, respond with exactly 'LGTM'.
-Otherwise, list all findings with severity, file, line, and description." \
-      --agent "$REVIEWER_AGENT" \
-      --max-turns "$REVIEWER_TURNS" \
-      --permission-mode "$PERMISSION_MODE" \
-      --output-format text 2>/dev/null) || REVIEW_OUTPUT="Review failed — treating as needs changes"
+    REVIEW_OUTPUT=$(cat "$LOG_DIR/review-iter-$i.raw.json")
   fi
 
-  echo "$REVIEW_OUTPUT" > "$LOG_DIR/review-iter-$i.txt"
+  # Step 3: Filter for display (non-fatal)
+  if [ -n "${CCL_STREAM_FILTER:-}" ] && [ -f "$CCL_STREAM_FILTER" ]; then
+    node "$CCL_STREAM_FILTER" < "$LOG_DIR/review-iter-$i.raw.json" \
+      > "$LOG_DIR/review-iter-$i.txt" 2>/dev/null || true
+  else
+    echo "$REVIEW_OUTPUT" > "$LOG_DIR/review-iter-$i.txt"
+  fi
+
+  # Extract cost from reviewer output
+  extract_cost "$LOG_DIR/review-iter-$i.raw.json"
 
   # ── Run tests for smart stop check ───────────────────────
   TEST_EXIT=1
@@ -267,7 +298,7 @@ Otherwise, list all findings with severity, file, line, and description." \
     STOP_REASON="smart_stop"
     rm -f "$REVIEW_FILE"
     if [ "$AUTO_COMMIT" = true ]; then
-      auto_commit "iteration-$i/passed"
+      auto_commit "iteration-$i/passed" || log "Warning: auto-commit failed, continuing"
     fi
     break
   fi
@@ -277,7 +308,7 @@ Otherwise, list all findings with severity, file, line, and description." \
   echo "$REVIEW_OUTPUT" > "$REVIEW_FILE"
 
   if [ "$AUTO_COMMIT" = true ]; then
-    auto_commit "iteration-$i/review-findings"
+    auto_commit "iteration-$i/review-findings" || log "Warning: auto-commit failed, continuing"
   fi
 done
 

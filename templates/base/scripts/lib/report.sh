@@ -23,7 +23,7 @@ generate_report() {
 
 EOF
 
-    for iter_log in "$LOG_DIR"/coder-iter-*.json; do
+    for iter_log in "$LOG_DIR"/coder-iter-*.raw.json; do
         [ -f "$iter_log" ] || continue
         local iter_num
         iter_num=$(echo "$iter_log" | grep -oE 'iter-[0-9]+' | grep -oE '[0-9]+')

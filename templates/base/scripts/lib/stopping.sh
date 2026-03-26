@@ -5,10 +5,26 @@
 PREV_ERROR_HASH=""
 CONSECUTIVE_SAME_ERRORS=0
 ZERO_DIFF_COUNT=0
+LAST_DIFF_HASH=""
 TOTAL_COST=0
 SHOULD_EXIT=false
 
 trap 'log "Received SIGTERM/SIGINT — finishing current iteration"; SHOULD_EXIT=true' SIGTERM SIGINT
+
+# ── Cost extraction ────────────────────────────────────────
+extract_cost() {
+  local raw_file="$1"
+  local cost=0
+
+  if [ -f "$raw_file" ] && command -v jq &>/dev/null; then
+    cost=$(jq -s '[.[] | select(.type == "result") | .cost_usd // .total_cost_usd // 0] | add // 0' \
+      "$raw_file" 2>/dev/null) || cost=0
+    [[ -z "$cost" || "$cost" == "null" ]] && cost=0
+  fi
+
+  TOTAL_COST=$(echo "${TOTAL_COST:-0} + $cost" | bc 2>/dev/null || echo "${TOTAL_COST:-0}")
+  log "Cost this call: \$${cost} | Cumulative: \$${TOTAL_COST}"
+}
 
 # ── Smart stop: tests pass + LGTM ─────────────────────────
 smart_stop_check() {
@@ -42,23 +58,26 @@ check_no_progress() {
     return 1
 }
 
-# ── Zero-diff detection (1 retry before halt) ─────────────
+# ── Zero-diff detection (hash-based, catches oscillation) ─
 check_zero_diff() {
-    local porcelain
-    porcelain=$(git status --porcelain 2>/dev/null)
-    local diff_stat
-    diff_stat=$(git diff --stat HEAD 2>/dev/null)
+    local current_hash
+    current_hash=$(git diff HEAD --stat 2>/dev/null | md5sum 2>/dev/null | cut -d' ' -f1)
+    # Fallback if md5sum not available
+    [[ -z "$current_hash" ]] && current_hash=$(git diff HEAD --stat 2>/dev/null | sha256sum 2>/dev/null | cut -d' ' -f1)
+    [[ -z "$current_hash" ]] && current_hash="empty"
 
-    if [[ -z "$porcelain" ]] && [[ -z "$diff_stat" ]]; then
+    if [[ "$current_hash" == "$LAST_DIFF_HASH" ]]; then
         ZERO_DIFF_COUNT=$((ZERO_DIFF_COUNT + 1))
         if [[ $ZERO_DIFF_COUNT -ge 2 ]]; then
-            log "ZERO-DIFF: No changes for 2 consecutive iterations"
+            log "ZERO-DIFF: Same diff state for $ZERO_DIFF_COUNT consecutive iterations"
             return 0
         fi
-        log "No changes detected — retrying (attempt $ZERO_DIFF_COUNT/2)"
-        return 1
+        log "Same diff state detected — retrying (attempt $ZERO_DIFF_COUNT/2)"
+    else
+        ZERO_DIFF_COUNT=0
     fi
-    ZERO_DIFF_COUNT=0
+
+    LAST_DIFF_HASH="$current_hash"
     return 1
 }
 
@@ -83,6 +102,9 @@ compilation_gate() {
     local build_cmd
     build_cmd=$(detect_build_command)
     [[ -z "$build_cmd" ]] && return 0
+
+    # Overwrite previous errors at the start of each gate check
+    > "$LOG_DIR/build_errors.txt"
 
     local build_output
     build_output=$(eval "$build_cmd" 2>&1)
