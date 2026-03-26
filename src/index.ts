@@ -4,6 +4,7 @@ import { initCommand } from "./commands/init.js";
 import { planCommand } from "./commands/plan.js";
 import { runCommand } from "./commands/run.js";
 import { configCommand } from "./commands/config.js";
+import { statusCommand } from "./commands/status.js";
 
 const require = createRequire(import.meta.url);
 const pkg = require("../package.json");
@@ -59,6 +60,7 @@ program
   )
   .option("--monitor", "Enable live tmux dashboard")
   .option("--no-commit", "Skip auto-commit after each phase")
+  .option("--dry-run", "Show resolved config without running")
   .action(async (taskFile, options) => {
     await runCommand(taskFile, options);
   });
@@ -84,6 +86,14 @@ program
   .option("--reset", "Reset config to defaults")
   .action(async (options) => {
     await configCommand(options);
+  });
+
+program
+  .command("status")
+  .description("Show current project configuration and setup status")
+  .option("--json", "Output as JSON")
+  .action(async (options) => {
+    await statusCommand(options);
   });
 
 program.parse();
