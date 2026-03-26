@@ -1,6 +1,6 @@
 {
   "name": "claude-code-loops",
-  "version": "0.6.3",
+  "version": "0.7.0",
   "description": "Autonomous code-review-fix loops for Claude Code",
   "type": "module",
   "bin": {

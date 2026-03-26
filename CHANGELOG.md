@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.7.0] - 2026-03-26
 
 ### Added
 
@@ -15,6 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ccl agent list` command — list agents with configuration and overrides
 - `ccl history` command — show latest loop run data and iteration breakdown
 - `ccl run --dry-run` flag — preview resolved loop config without starting
+- Unit tests for new commands (37 new tests, 130 total)
+
+### Changed
+
+- Improved coder agent prompts with self-review checklists and escalation protocols
+- Improved reviewer agent prompts with three-tier verdicts (PASS/PASS_WITH_SUGGESTIONS/FAIL) and structured issue categorization
+- Improved planner agent with file structure mapping and bite-sized task methodology
+- Improved debugger agent with systematic root-cause investigation phases
 
 ## [0.6.3] - 2026-03-26
 
