@@ -162,6 +162,9 @@ Options:
   --no-commit             Skip auto-commit after each phase
   --log-dir DIR           Log directory (default: .claude/logs)
   --permission-mode MODE  Permission mode (default: acceptEdits)
+  --coder-budget <usd>    Max cost per coder call (e.g. 2.00)
+  --reviewer-budget <usd> Max cost per reviewer call (e.g. 1.00)
+  --phase-timeout <duration> Timeout per phase (e.g. 10m, 1h)
 
 Stopping conditions (all ON by default except opt-in):
   --stop-on-pass          Exit on tests pass + LGTM review
